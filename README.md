@@ -1,0 +1,64 @@
+# 币价一瞥 · Coin Glance
+
+一个在 Chrome 工具栏显示币安现货价格的 Manifest V3 扩展。React + TypeScript + Vite，无后端、无需 API Key。
+
+## 安装与使用
+
+需要 Node.js 22.12+（建议 24）和 Chrome 120+。
+
+```sh
+npm ci
+npm run build
+```
+
+1. 打开 `chrome://extensions`，开启「开发者模式」。
+2. 点击「加载已解压的扩展程序」，选择项目的 `dist` 文件夹。
+3. 在 Chrome 扩展菜单中将「币价一瞥」固定到工具栏。
+4. 点击图标管理自选、切换角标关注币对和显示偏好。鼠标悬停图标可查看完整价格、计价币种和更新时间。
+
+`npm run package` 生成 `artifacts/coin-glance-0.1.0.zip`；分享安装时先解压，再加载解压后的目录。更新代码并构建后，在扩展管理页点击重新加载。
+
+## 首版功能
+
+- 默认关注 BTC、ETH 等 10 个 USDT 交易对，最多 20 个自选，至少保留 1 个。
+- 工具栏显示价格或 24 小时涨跌幅，支持固定币对、5 / 10 / 15 秒轮换。
+- 币安现货币对搜索、详情、加入 / 移除自选、固定到角标，准确展示 USDT、BTC 等计价单位。
+- 浅色 / 深色 / 跟随系统，涨绿跌红或涨红跌绿。
+- WebSocket 推送，REST 批量补数；断线重连、限流退避、请求超时、旧响应防覆盖。
+- 断网保留最后价格；超过 60 秒显示缓存状态，角标变灰，悬浮说明包含更新时间。
+
+角标空间很小，最多显示 4 个字符：`76k` 表示约 76,000，`1e-5` 表示约 0.00001。极端数值显示 `TINY` / `HUGE`，完整价格以悬浮说明和详情为准。涨跌幅角标省略 `%`，绝对值达到 100% 时显示 `+99+` / `-99+`。USDT 是实际计价资产，界面不会把它替换成美元符号。轮换时当前币对以图标悬浮说明为准。
+
+详情中的非自选币对是打开时的快照，加入自选后持续订阅；未加入自选的详情超过 60 秒会显示缓存。当前版本不包含交易、账户连接、合约、提醒或资产管理。
+
+## 数据与权限
+
+扩展只申请 `storage`、`alarms` 和币安公开行情域名权限，不读取浏览历史、不注入网页、不收集账户或身份数据。设置、币对目录与最近行情保存在本机 `chrome.storage.local`。
+
+- REST：`https://data-api.binance.vision/api/v3/`，使用 `exchangeInfo` 与批量 `ticker/24hr`。
+- WebSocket：`wss://data-stream.binance.vision:443/stream`，订阅自选的 `@ticker`（约每秒推送）。
+- 每 20 秒发送合法的订阅查询作为连接保活；Chrome alarm 每 30 秒检查恢复，后台启动时补建缺失 alarm。
+- 行情缓存最多每 15 秒写入一次，弹窗和角标更新最多约每秒一次。低活跃交易对可能依靠 REST 补齐。
+
+浏览器完全退出、系统休眠或网络无法访问币安时不能持续更新；恢复后自动尝试连接。Chrome 的后台调度不是硬实时保证。限流时遵循 `Retry-After`，不会通过切换域名绕过限制。
+
+参考：[币安公开行情接口](https://developers.binance.com/docs/binance-spot-api-docs/faqs/market_data_only)、[WebSocket streams](https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams)、[Chrome service worker 生命周期](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)。
+
+## 开发与验证
+
+```sh
+npm run dev          # 浏览器打开 /popup.html；明确标注示例数据的交互预览
+npm run check        # TypeScript、单元/组件测试、生产构建与资源检查
+npx playwright install chromium
+npm run test:e2e     # 隔离 Chromium 配置中加载真正的扩展，使用可复现行情
+node scripts/live-smoke.mjs # 可选：验证本机真实币安连接，需要网络，不在 CI 中执行
+npm run package     # 构建安装包，需要系统 zip 命令
+```
+
+源码分为 `src/shared`（设置、精度、消息类型）、`src/market`（请求与连接状态）、`src/background`（Chrome 生命周期 / 角标 / 存储）、`src/popup`（React 界面）。后台是唯一行情源，弹窗通过消息与 port 订阅快照。生产包不包含预览行情。
+
+图标为本项目原创几何图形，运行 `node scripts/generate-icons.mjs` 可重建。实现参考「章鱼查币价」的使用方式并修复其可复现问题，没有复制该扩展源码或图标。见 [改进记录](docs/reference-notes.md) 与 [验证记录](docs/verification.md)。
+
+## GitHub 自动检查
+
+CI 配置保存在 [docs/github-actions-check.yml](docs/github-actions-check.yml)，目前作为模板提供，尚未启用。首次上传使用的 GitHub OAuth 凭据没有 `workflow` 权限，GitHub 因此拒绝直接上传工作流文件；现有 SSH 也尚未配置成功。具备相应权限后，将模板移至 `.github/workflows/check.yml` 并提交，即可在 push / PR 时运行类型检查、测试、构建和浏览器集成测试。本地验证不依赖此权限。

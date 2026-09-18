@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "币价一瞥 · Coin Glance",
+  "description": "在 Chrome 工具栏查看币安现货行情，支持自选、涨跌幅、轮播与断线状态。无需 API Key。",
+  "version": "0.1.0",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://data-api.binance.vision/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "币价一瞥 · 正在连接行情", "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" } },
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://data-api.binance.vision wss://data-stream.binance.vision;" }
+}

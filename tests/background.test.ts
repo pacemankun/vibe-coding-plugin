@@ -4,6 +4,17 @@ import { ensureAlarm, HEALTH_ALARM } from '../src/background/alarm';
 import { createDefaultSettings } from '../src/shared/settings';
 import type { Snapshot } from '../src/shared/types';
 describe('toolbar and worker recovery',()=>{
+  it('uses the perpetual quote and its own connection when spot is offline',()=>{
+    const spot=createDefaultSettings().watchlist[0];
+    const future={...spot,market:'usdm' as const};
+    const settings={...createDefaultSettings(),watchlist:[spot,future],badgeSymbol:'usdm:BTCUSDT'};
+    const state:Snapshot={settings,quotes:{BTCUSDT:{...spot,price:'60000',changePercent:-1,receivedAt:5000,eventTime:5000,source:'rest'},'usdm:BTCUSDT':{...future,price:'61000',changePercent:2,receivedAt:5000,eventTime:5000,source:'stream'}},connection:{status:'degraded',message:'现货离线',lastMessageAt:5000},connections:{spot:{status:'offline',message:'断网',lastMessageAt:null},usdm:{status:'live',message:'实时',lastMessageAt:5000}}};
+    const badge=createBadge(state,5000);
+    expect(badge.text).toBe('61k');
+    expect(badge.title).toContain('USDT 永续');
+    expect(badge.title).toContain('最新成交价');
+    expect(badge.color).toBe('#13865f');
+  });
   it('uses the actual rotated pair and its quote currency in the tooltip',()=>{
     const settings={...createDefaultSettings(),rotationSeconds:5 as const};
     const pair=getBadgePair(settings,5000);

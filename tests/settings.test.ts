@@ -2,8 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { applySettingsPatch, createDefaultSettings, normalizeSettings, isMarketSymbol } from '../src/shared/settings';
 const btc = {symbol:'BTCUSDT',baseAsset:'BTC',quoteAsset:'USDT'};
 const eth = {symbol:'ETHBTC',baseAsset:'ETH',quoteAsset:'BTC'};
+const future = {...btc,market:'usdm' as const};
 
 describe('settings persistence boundaries', () => {
+  it('keeps spot and perpetual contracts with the same symbol separate', () => {
+    const state=normalizeSettings({watchlist:[btc,future,future],badgeSymbol:'usdm:BTCUSDT'});
+    expect(state.watchlist).toEqual([btc,future]);
+    expect(state.badgeSymbol).toBe('usdm:BTCUSDT');
+    expect(applySettingsPatch(state,{watchlist:[btc]}).badgeSymbol).toBe('BTCUSDT');
+  });
+  it('rejects unsupported markets and non-USDT perpetual instruments', () => {
+    expect(isMarketSymbol({...btc,market:'unknown'})).toBe(false);
+    expect(isMarketSymbol({...eth,market:'usdm'})).toBe(false);
+  });
   it('keeps actual quote currencies, deduplicates and repairs missing badge selection on load', () => {
     const state = normalizeSettings({watchlist:[eth,eth,btc],badgeSymbol:'GONE',theme:'dark'});
     expect(state.watchlist).toEqual([eth,btc]);

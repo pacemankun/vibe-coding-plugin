@@ -1,4 +1,5 @@
 import type { MarketSymbol, Settings } from './types';
+import { pairKey } from './market';
 
 export const MAX_WATCHLIST = 20;
 export function createDefaultSettings(): Settings {
@@ -12,6 +13,8 @@ export function isMarketSymbol(value: unknown): value is MarketSymbol {
   if (!isRecord(value)) return false;
   const asset = /^[\p{L}\p{N}]{1,40}$/u;
   return typeof value.symbol === 'string' && typeof value.baseAsset === 'string' && typeof value.quoteAsset === 'string'
+    && (value.market === undefined || value.market === 'spot' || value.market === 'usdm')
+    && (value.market !== 'usdm' || value.quoteAsset === 'USDT')
     && asset.test(value.baseAsset) && asset.test(value.quoteAsset) && value.symbol === value.baseAsset + value.quoteAsset;
 }
 
@@ -19,11 +22,11 @@ export function normalizeSettings(value: unknown): Settings {
   const defaults = createDefaultSettings();
   if (!isRecord(value)) return defaults;
   const valid = Array.isArray(value.watchlist) ? value.watchlist.filter(isMarketSymbol) : [];
-  const watchlist = [...new Map(valid.map(pair => [pair.symbol, {symbol:pair.symbol,baseAsset:pair.baseAsset,quoteAsset:pair.quoteAsset}])).values()].slice(0, MAX_WATCHLIST);
+  const watchlist:MarketSymbol[] = [...new Map(valid.map(pair => [pairKey(pair), {symbol:pair.symbol,baseAsset:pair.baseAsset,quoteAsset:pair.quoteAsset,...(pair.market === 'usdm' ? {market:'usdm' as const} : {})}])).values()].slice(0, MAX_WATCHLIST);
   if (!watchlist.length) watchlist.push(...defaults.watchlist);
   return {
     version: 1, watchlist,
-    badgeSymbol: watchlist.some(pair => pair.symbol === value.badgeSymbol) ? value.badgeSymbol as string : watchlist[0].symbol,
+    badgeSymbol: watchlist.some(pair => pairKey(pair) === value.badgeSymbol) ? value.badgeSymbol as string : pairKey(watchlist[0]),
     badgeMode: value.badgeMode === 'change' ? 'change' : 'price',
     rotationSeconds: [0,5,10,15].includes(value.rotationSeconds as number) ? value.rotationSeconds as Settings['rotationSeconds'] : 0,
     theme: ['light','dark','system'].includes(value.theme as string) ? value.theme as Settings['theme'] : 'system',
@@ -42,6 +45,6 @@ export function applySettingsPatch(settings: Settings, patch: unknown): Settings
     if (key in patch && !(values as unknown[]).includes(patch[key])) throw new Error('设置选项无效');
   }
   const result = normalizeSettings({...settings,...patch});
-  if ('badgeSymbol' in patch && !result.watchlist.some(pair => pair.symbol === patch.badgeSymbol)) throw new Error('请从自选列表选择角标币种');
+  if ('badgeSymbol' in patch && !result.watchlist.some(pair => pairKey(pair) === patch.badgeSymbol)) throw new Error('请从自选列表选择角标币种');
   return result;
 }

@@ -4,6 +4,7 @@ import { createDefaultSettings } from '../src/shared/settings';
 import type { Quote } from '../src/shared/types';
 const btc={symbol:'BTCUSDT',baseAsset:'BTC',quoteAsset:'USDT'};
 const eth={symbol:'ETHBTC',baseAsset:'ETH',quoteAsset:'BTC'};
+const future={...btc,market:'usdm' as const};
 const quote=(price='60000',receivedAt=1000):Quote=>({...btc,price,receivedAt,eventTime:receivedAt,changePercent:1,source:'rest'});
 class Socket implements SocketLike {
   readyState=0; onopen:(()=>void)|null=null; onclose:(()=>void)|null=null; onerror:(()=>void)|null=null; onmessage:((event:{data:unknown})=>void)|null=null;
@@ -65,5 +66,65 @@ describe('market lifecycle regression coverage',()=>{
     sockets[0]?.onmessage?.({data:JSON.stringify({e:'serverShutdown'})});
     expect(sockets.length).toBe(2);
     expect(states).toContain('live');
+  });
+  it('keeps same-symbol spot and futures quotes isolated on independent sockets',async()=>{
+    const sockets:{url:string;socket:Socket}[]=[];
+    const engine=new MarketEngine({settings:{...createDefaultSettings(),watchlist:[btc,future]},client:{getQuotes:async pairs=>pairs.map(pair=>({...pair,price:pair.market==='usdm'?'70000':'60000',receivedAt:1000,eventTime:1000,changePercent:1,source:'rest' as const}))},createSocket:url=>{const socket=new Socket();sockets.push({url,socket});return socket;},random:()=>0});
+    active.push(engine);await engine.start();
+    expect(sockets.map(item=>item.url)).toEqual(expect.arrayContaining([
+      expect.stringContaining('data-stream.binance.vision'),
+      expect.stringContaining('fstream.binance.com/market/stream?streams=btcusdt@ticker'),
+    ]));
+    expect(engine.getSnapshot().quotes.BTCUSDT.price).toBe('60000');
+    expect(engine.getSnapshot().quotes['usdm:BTCUSDT'].price).toBe('70000');
+    sockets.find(item=>item.url.includes('fstream'))?.socket.open();
+    sockets.find(item=>item.url.includes('fstream'))?.socket.ticker('BTCUSDT','71000',1000);
+    expect(engine.getSnapshot().quotes.BTCUSDT.price).toBe('60000');
+    expect(engine.getSnapshot().quotes['usdm:BTCUSDT'].price).toBe('71000');
+  });
+  it('preserves one market when the other fails and cleans up removed subscriptions',async()=>{
+    const sockets:{url:string;socket:Socket}[]=[];
+    const engine=new MarketEngine({settings:{...createDefaultSettings(),watchlist:[btc,future]},client:{getQuotes:async pairs=>{
+      if(pairs[0]?.market==='usdm')throw Error('futures unavailable');
+      return [quote()];
+    }},createSocket:url=>{const socket=new Socket();sockets.push({url,socket});return socket;},random:()=>0});
+    active.push(engine);await engine.start();
+    const spot=sockets.find(item=>item.url.includes('data-stream'))!.socket;
+    spot.open();spot.ticker('BTCUSDT','61000',1000);
+    expect(engine.getSnapshot().connections?.spot?.status).toBe('live');
+    expect(engine.getSnapshot().connections?.usdm?.status).not.toBe('live');
+    engine.setSettings({...createDefaultSettings(),watchlist:[btc]});
+    expect(sockets.find(item=>item.url.includes('fstream'))?.socket.readyState).toBe(3);
+    expect(sockets.filter(item=>item.url.includes('data-stream'))).toHaveLength(1);
+    expect(engine.getSnapshot().quotes['usdm:BTCUSDT']).toBeUndefined();
+    engine.stop();expect(spot.readyState).toBe(3);
+  });
+  it('publishes a successful spot refresh while futures is still pending',async()=>{
+    let resolveFutures!:(quotes:Quote[])=>void;
+    const futures=new Promise<Quote[]>(resolve=>{resolveFutures=resolve;});
+    const engine=new MarketEngine({settings:{...createDefaultSettings(),watchlist:[btc,future]},client:{getQuotes:async pairs=>pairs[0]?.market==='usdm'?futures:[quote()]}});
+    active.push(engine);
+    const published=vi.fn();engine.subscribe(published);
+    let finished=false;
+    const refreshing=engine.refresh().then(()=>{finished=true;});
+    await vi.waitFor(()=>expect(engine.getSnapshot().quotes.BTCUSDT?.price).toBe('60000'));
+    expect(finished).toBe(false);
+    expect(published).toHaveBeenCalledWith(expect.objectContaining({quotes:expect.objectContaining({BTCUSDT:expect.objectContaining({price:'60000'})})}));
+    expect(engine.getSnapshot().quotes['usdm:BTCUSDT']).toBeUndefined();
+    resolveFutures([{...quote('70000'),market:'usdm'}]);await refreshing;
+    expect(engine.getSnapshot().quotes['usdm:BTCUSDT']?.price).toBe('70000');
+  });
+  it('ignores pending market results after settings change',async()=>{
+    let resolveFutures!:(quotes:Quote[])=>void;
+    const futures=new Promise<Quote[]>(resolve=>{resolveFutures=resolve;});
+    const engine=new MarketEngine({settings:{...createDefaultSettings(),watchlist:[btc,future]},client:{getQuotes:async pairs=>pairs[0]?.market==='usdm'?futures:[quote()]}});
+    active.push(engine);
+    const refreshing=engine.refresh();
+    await vi.waitFor(()=>expect(engine.getSnapshot().quotes.BTCUSDT?.price).toBe('60000'));
+    engine.setSettings({...createDefaultSettings(),watchlist:[future]});
+    const published=vi.fn();engine.subscribe(published);
+    resolveFutures([{...quote('70000'),market:'usdm'}]);await refreshing;
+    expect(engine.getSnapshot().quotes['usdm:BTCUSDT']).toBeUndefined();
+    expect(published).not.toHaveBeenCalled();
   });
 });

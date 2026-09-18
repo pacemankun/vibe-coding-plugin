@@ -18,7 +18,7 @@ function send<T>(request: Request): Promise<T> {
 export const chromeBridge: PopupBridge = {
   isPreview: false,
   getState: () => send<Snapshot>({ type: 'GET_STATE' }),
-  getSymbols: () => send<MarketSymbol[]>({ type: 'GET_SYMBOLS' }),
+  getSymbols: (market = 'spot') => send<MarketSymbol[]>({ type: 'GET_SYMBOLS', market }),
   getQuote: (symbol: MarketSymbol) => send<Quote>({ type: 'GET_QUOTE', symbol }),
   updateSettings: (patch: Partial<Omit<Settings, 'version'>>) => send<Snapshot>({ type: 'UPDATE_SETTINGS', patch }),
   refresh: () => send<Snapshot>({ type: 'REFRESH' }),
@@ -46,7 +46,14 @@ export const chromeBridge: PopupBridge = {
           if (disposed || port !== current) return;
           port = undefined;
           if (lastState) {
-            lastState = { ...lastState, connection: { ...lastState.connection, status: 'offline', message: chrome.runtime.lastError?.message ?? '后台连接中断' } };
+            const message = chrome.runtime.lastError?.message ?? '后台连接中断';
+            lastState = {
+              ...lastState,
+              connection: { ...lastState.connection, status: 'offline', message },
+              connections: lastState.connections && Object.fromEntries(
+                Object.entries(lastState.connections).map(([market, connection]) => [market, { ...connection, status: 'offline', message }]),
+              ),
+            };
             listener(lastState);
           }
           retryTimer = window.setTimeout(connect, Math.min(1000 * 2 ** attempts++, 10_000));

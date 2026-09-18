@@ -64,4 +64,4 @@ Files: `tests/e2e/**`, `playwright.config.ts`, `docs/verification.md`。
 - [x] Playwright 验证 popup 搜索、自选、主题、状态与订阅；加载打包扩展验证 manifest/service worker、真实 chrome.storage/action、alarm。
 - [x] 在允许网络的环境检查 Binance REST/WS；记录真实成功或限制，不把示例数据当实时数据。
 - [x] 独立最终代码审查，修复重要问题，执行 `npm run check` 与浏览器验证。
-- [ ] Git 初始化、明确文件清单暂存、提交；新建用户所选可见性的仓库，push 并核对远端 SHA。
+- [x] Git 初始化、明确文件清单暂存、提交；新建私有仓库 `pacemankun/vibe-coding-plugin`，push 并核对远端 SHA。

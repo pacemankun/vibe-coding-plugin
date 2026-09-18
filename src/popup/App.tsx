@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, CircleAlert, Pin, Plus, RefreshCw, Search, Settings2, X } from 'lucide-react';
 import { formatChange, formatPrice, isStale } from '../shared/format';
 import { createDefaultSettings } from '../shared/settings';
-import type { MarketSymbol, PopupBridge, Quote, Settings, Snapshot } from '../shared/types';
+import { connectionFor, marketLabel, marketOf, pairKey } from '../shared/market';
+import type { MarketSymbol, MarketType, PopupBridge, Quote, Settings, Snapshot } from '../shared/types';
 import './popup.css';
 
 type View = 'home' | 'search' | 'settings';
@@ -13,7 +14,10 @@ const messageOf = (error: unknown) => error instanceof Error ? error.message : S
 export default function App({ bridge }: { bridge: PopupBridge }) {
   const [state, setState] = useState<Snapshot | null>(null);
   const [view, setView] = useState<View>('home');
-  const [symbols, setSymbols] = useState<MarketSymbol[]>([]);
+  const [catalogs, setCatalogs] = useState<Record<MarketType, MarketSymbol[] | null>>({ spot: null, usdm: null });
+  const [catalogErrors, setCatalogErrors] = useState<Record<MarketType, string>>({ spot: '', usdm: '' });
+  const [catalogLoading, setCatalogLoading] = useState<Record<MarketType, boolean>>({ spot: false, usdm: false });
+  const [searchMarket, setSearchMarket] = useState<MarketType>('spot');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<MarketSymbol | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
@@ -22,7 +26,9 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const quoteRequest = useRef(0);
-  const catalogRequest = useRef(0);
+  const catalogRequest = useRef<Record<MarketType, number>>({ spot: 0, usdm: 0 });
+  const catalogAttempted = useRef<Record<MarketType, boolean>>({ spot: false, usdm: false });
+  const mounted = useRef(true);
   const selectedStateQuote = useRef<Quote | undefined>(undefined);
   const pushGeneration = useRef(0);
   const stateRef = useRef<Snapshot | null>(null);
@@ -33,7 +39,32 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     setState(next);
   }
 
+  function loadCatalog(market: MarketType, retry = false): Promise<string> {
+    if (!retry && catalogAttempted.current[market]) return Promise.resolve('');
+    catalogAttempted.current[market] = true;
+    const request = ++catalogRequest.current[market];
+    setCatalogLoading(previous => ({ ...previous, [market]: true }));
+    setCatalogErrors(previous => ({ ...previous, [market]: '' }));
+    return bridge.getSymbols(market).then(items => {
+      if (mounted.current && catalogRequest.current[market] === request) {
+        setCatalogs(previous => ({ ...previous, [market]: items }));
+        setCatalogErrors(previous => ({ ...previous, [market]: '' }));
+      }
+      return '';
+    }).catch(err => {
+      const message = `无法加载${market === 'usdm' ? 'USDT 永续' : '现货'}币对：${messageOf(err)}`;
+      if (mounted.current && catalogRequest.current[market] === request) {
+        setCatalogErrors(previous => ({ ...previous, [market]: message }));
+        setError(message);
+      }
+      return message;
+    }).finally(() => {
+      if (mounted.current && catalogRequest.current[market] === request) setCatalogLoading(previous => ({ ...previous, [market]: false }));
+    });
+  }
+
   useEffect(() => {
+    mounted.current = true;
     let active = true;
     const unsubscribe = bridge.subscribe(next => {
       if (active) {
@@ -45,19 +76,14 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     bridge.getState().then(next => {
       if (active && pushGeneration.current === initialGeneration) acceptSnapshot(next);
     }).catch(err => { if (active && pushGeneration.current === initialGeneration) setError(`无法读取行情：${messageOf(err)}`); });
-    const initialCatalogRequest = ++catalogRequest.current;
-    bridge.getSymbols().then(items => {
-      if (active && catalogRequest.current === initialCatalogRequest) setSymbols(items);
-    }).catch(err => {
-      if (active && catalogRequest.current === initialCatalogRequest) setError(`无法加载币对：${messageOf(err)}`);
-    });
+    void loadCatalog('spot');
     const timer = window.setInterval(() => setNow(Date.now()), 10_000);
-    return () => { active = false; unsubscribe(); window.clearInterval(timer); quoteRequest.current++; catalogRequest.current++; };
+    return () => { active = false; mounted.current = false; unsubscribe(); window.clearInterval(timer); quoteRequest.current++; catalogRequest.current.spot++; catalogRequest.current.usdm++; };
   }, [bridge]);
 
   useEffect(() => {
     if (!selected) return;
-    const incoming = state?.quotes[selected.symbol];
+    const incoming = state?.quotes[pairKey(selected)];
     if (incoming && incoming !== selectedStateQuote.current) {
       selectedStateQuote.current = incoming;
       quoteRequest.current++;
@@ -66,23 +92,23 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     }
   }, [selected, state]);
 
-  const focusSymbol = settings.watchlist.find(item => item.symbol === settings.badgeSymbol) ?? settings.watchlist[0];
-  const focusQuote = focusSymbol ? state?.quotes[focusSymbol.symbol] : undefined;
+  const focusSymbol = settings.watchlist.find(item => pairKey(item) === settings.badgeSymbol) ?? settings.watchlist[0];
+  const focusQuote = focusSymbol ? state?.quotes[pairKey(focusSymbol)] : undefined;
   const filteredSymbols = useMemo(() => {
     const query = search.trim().toUpperCase();
-    const matches = symbols.filter(item => !query || item.symbol.toUpperCase().includes(query) || item.baseAsset.toUpperCase().includes(query) || item.quoteAsset.toUpperCase().includes(query));
+    const matches = (catalogs[searchMarket] ?? []).filter(item => !query || item.symbol.toUpperCase().includes(query) || item.baseAsset.toUpperCase().includes(query) || item.quoteAsset.toUpperCase().includes(query));
     matches.sort((a, b) => {
       const rank = (item: MarketSymbol) => query && (item.symbol.toUpperCase() === query || item.baseAsset.toUpperCase() === query) ? 0 : item.quoteAsset === 'USDT' ? 1 : 2;
       return rank(a) - rank(b) || a.symbol.localeCompare(b.symbol);
     });
     return matches.slice(0, 30);
-  }, [symbols, search]);
+  }, [catalogs, searchMarket, search]);
 
   function selectPair(pair: MarketSymbol) {
     const request = ++quoteRequest.current;
-    selectedStateQuote.current = state?.quotes[pair.symbol];
+    selectedStateQuote.current = state?.quotes[pairKey(pair)];
     setSelected(pair);
-    setSelectedQuote(state?.quotes[pair.symbol] ?? null);
+    setSelectedQuote(state?.quotes[pairKey(pair)] ?? null);
     setDetailLoading(true);
     setError('');
     setView('home');
@@ -120,33 +146,29 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     setBusy(true);
     setError('');
     const startedAt = pushGeneration.current;
-    const retryCatalog = symbols.length === 0;
-    const catalogId = retryCatalog ? ++catalogRequest.current : null;
     try {
       const marketTask = bridge.refresh().then(result => {
         if (pushGeneration.current === startedAt) acceptSnapshot(result);
         return '';
       }).catch(err => `刷新失败：${messageOf(err)}`);
-      const catalogTask = retryCatalog ? bridge.getSymbols().then(items => {
-        if (catalogRequest.current === catalogId) setSymbols(items);
-        return '';
-      }).catch(err => catalogRequest.current === catalogId ? `无法加载币对：${messageOf(err)}` : '') : Promise.resolve('');
-      const failures = (await Promise.all([marketTask, catalogTask])).filter(Boolean);
+      const catalogTasks = (['spot', 'usdm'] as const).filter(market => catalogAttempted.current[market] && catalogs[market] === null).map(market => loadCatalog(market, true));
+      const failures = (await Promise.all([marketTask, ...catalogTasks])).filter(Boolean);
       if (failures.length) setError(failures.join('；'));
     }
     finally { setBusy(false); }
   }
 
-  const selectedInList = selected && settings.watchlist.some(item => item.symbol === selected.symbol);
+  const selectedInList = selected && settings.watchlist.some(item => pairKey(item) === pairKey(selected));
   const changeClass = (change: number | null | undefined) => {
     if (change == null) return '';
     return (change >= 0) === (settings.colorScheme === 'green-up') ? 'positive' : 'negative';
   };
-  const quoteStatus = (item: Quote | undefined) => {
+  const quoteStatus = (item: Quote | undefined, pair: MarketSymbol | undefined) => {
     if (!item) return '等待行情';
     if (isStale(item, now)) return '缓存行情';
-    if (state?.connection.status === 'offline') return '离线缓存';
-    if (state?.connection.status !== 'live') return '缓存行情';
+    const connection = state && pair ? connectionFor(state, pair) : state?.connection;
+    if (connection?.status === 'offline') return '离线缓存';
+    if (connection?.status !== 'live') return '缓存行情';
     return item.source === 'rest' ? '最新快照' : '实时行情';
   };
 
@@ -169,26 +191,37 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
         <SettingGroup title="外观" options={[["system",'跟随系统'],['light','浅色'],['dark','深色']]} value={settings.theme} disabled={busy} onSelect={value => save({ theme: value as Settings['theme'] })}/>
         <SettingGroup title="涨跌颜色" options={[["green-up",'涨绿跌红'],['red-up','涨红跌绿']]} value={settings.colorScheme} disabled={busy} onSelect={value => save({ colorScheme: value as Settings['colorScheme'] })}/>
       </section> : <>
-        <div className="intro-row"><div><span className="eyebrow">YOUR MARKET AT A GLANCE</span><h1>市场概览<span className="live-spark">✳</span></h1></div><span className="market-note">SPOT / 24H</span></div>
+        <div className="intro-row"><div><span className="eyebrow">YOUR MARKET AT A GLANCE</span><h1>市场概览<span className="live-spark">✳</span></h1></div><span className="market-note">现货 / USDT 永续 · 24H</span></div>
         <section className="focus-card" data-testid="focus-quote" aria-label="角标关注行情">
-          <div className="focus-top"><span className="focus-kicker"><span className="focus-dot"/>角标关注</span><span className="fresh-label">{quoteStatus(focusQuote)}</span></div>
+          <div className="focus-top"><span className="focus-kicker"><span className="focus-dot"/>角标关注{focusSymbol && <span className="market-tag">{marketLabel(focusSymbol)}</span>}</span><span className="fresh-label">{quoteStatus(focusQuote, focusSymbol)}</span></div>
           <div className="focus-pair"><span className="coin-symbol">{focusSymbol?.baseAsset ?? '—'}</span><span className="pair-divider">/</span><span>{focusSymbol?.quoteAsset ?? '—'}</span></div>
-          <div className="focus-price"><strong title={focusQuote ? formatPrice(focusQuote.price) : undefined}>{focusQuote ? formatPrice(focusQuote.price) : '--'}</strong><span>{focusSymbol?.quoteAsset ?? ''}</span></div>
+          <div className="price-caption">{focusSymbol && marketOf(focusSymbol) === 'usdm' ? '最新成交价' : '最新价格'}</div><div className="focus-price"><strong title={focusQuote ? formatPrice(focusQuote.price) : undefined}>{focusQuote ? formatPrice(focusQuote.price) : '--'}</strong><span>{focusSymbol?.quoteAsset ?? ''}</span></div>
           <div className="focus-bottom"><span>过去 24 小时</span><span className={`change-pill ${changeClass(focusQuote?.changePercent)}`}>{focusQuote?.changePercent != null && focusQuote.changePercent >= 0 ? <ArrowUpRight size={14}/> : <ArrowDownRight size={14}/>} {formatChange(focusQuote?.changePercent ?? null)}</span></div>
         </section>
         {selected && <section className="detail-card" data-testid="pair-detail" aria-label="币对详情">
-          <div className="detail-head"><div><span className="eyebrow">币对预览</span><h2>{pairName(selected)}</h2></div><button className="icon-button" aria-label="关闭币对详情" onClick={() => { quoteRequest.current++; setSelected(null); setSelectedQuote(null); }}><X size={17}/></button></div>
-          <div className="detail-price"><strong title={selectedQuote ? formatPrice(selectedQuote.price) : undefined}>{selectedQuote ? formatPrice(selectedQuote.price) : detailLoading ? '加载中…' : '--'}</strong><span>{selected.quoteAsset}</span></div>
-          <div className="detail-meta"><span>{quoteStatus(selectedQuote ?? undefined)}</span><span>24h {formatChange(selectedQuote?.changePercent ?? null)}</span></div>
-          <div className="detail-actions"><button className="primary-button" disabled={busy || !!selectedInList || settings.watchlist.length >= 20} onClick={() => save({ watchlist: [...settings.watchlist, selected] })}>{selectedInList ? <><Check size={15}/> 已在自选</> : settings.watchlist.length >= 20 ? '自选已满（20）' : <><Plus size={15}/> 加入自选</>}</button><button className="outline-button" disabled={busy || (!selectedInList && settings.watchlist.length >= 20)} onClick={() => save({ badgeSymbol: selected.symbol, watchlist: selectedInList ? settings.watchlist : [...settings.watchlist, selected], rotationSeconds: 0 })}><Pin size={14}/> 固定到角标</button></div>
+          <div className="detail-head"><div><span className="eyebrow">币对预览 · {marketLabel(selected)}</span><h2>{pairName(selected)}</h2></div><button className="icon-button" aria-label="关闭币对详情" onClick={() => { quoteRequest.current++; setSelected(null); setSelectedQuote(null); }}><X size={17}/></button></div>
+          <div className="price-caption">{marketOf(selected) === 'usdm' ? '最新成交价' : '最新价格'}</div><div className="detail-price"><strong title={selectedQuote ? formatPrice(selectedQuote.price) : undefined}>{selectedQuote ? formatPrice(selectedQuote.price) : detailLoading ? '加载中…' : '--'}</strong><span>{selected.quoteAsset}</span></div>
+          <div className="detail-meta"><span>{quoteStatus(selectedQuote ?? undefined, selected)}</span><span>24h {formatChange(selectedQuote?.changePercent ?? null)}</span></div>
+          <div className="detail-actions"><button className="primary-button" disabled={busy || !!selectedInList || settings.watchlist.length >= 20} onClick={() => save({ watchlist: [...settings.watchlist, selected] })}>{selectedInList ? <><Check size={15}/> 已在自选</> : settings.watchlist.length >= 20 ? '自选已满（20）' : <><Plus size={15}/> 加入自选</>}</button><button className="outline-button" disabled={busy || (!selectedInList && settings.watchlist.length >= 20)} onClick={() => save({ badgeSymbol: pairKey(selected), watchlist: selectedInList ? settings.watchlist : [...settings.watchlist, selected], rotationSeconds: 0 })}><Pin size={14}/> 固定到角标</button></div>
         </section>}
         <section className="watch-section" aria-label="自选行情"><div className="watch-head"><div><span className="eyebrow">WATCHLIST</span><h2>我的自选 <span>{settings.watchlist.length}/20</span></h2></div><button className="add-button" aria-label="添加币对" onClick={() => setView('search')}><Plus size={16}/> 添加币对</button></div>
-          <div className="watch-list">{settings.watchlist.map(item => { const itemQuote = state?.quotes[item.symbol]; return <div className="watch-row" key={item.symbol}><button className="watch-main" onClick={() => selectPair(item)} aria-label={`查看 ${pairName(item)} 详情`}><span className="coin-avatar">{item.baseAsset.slice(0, 1)}</span><span className="watch-identity"><strong>{item.baseAsset}<small>/{item.quoteAsset}</small></strong><small>{quoteStatus(itemQuote)}</small></span><span className="watch-value"><strong title={itemQuote ? `${formatPrice(itemQuote.price)} ${item.quoteAsset}` : undefined}>{itemQuote ? formatPrice(itemQuote.price) : '--'} <small>{item.quoteAsset}</small></strong><small className={changeClass(itemQuote?.changePercent)}>{formatChange(itemQuote?.changePercent ?? null)}</small></span><ChevronRight size={15} className="row-chevron"/></button><button className="remove-button" aria-label={`移除 ${pairName(item)}`} title={settings.watchlist.length <= 1 ? '至少保留一个币对' : '移除自选'} disabled={busy || settings.watchlist.length <= 1} onClick={() => save({watchlist: settings.watchlist.filter(entry => entry.symbol !== item.symbol)})}><X size={14}/></button></div>; })}</div>
+          <div className="watch-list">{settings.watchlist.map(item => { const itemQuote = state?.quotes[pairKey(item)]; return <div className="watch-row" key={pairKey(item)}><button className="watch-main" onClick={() => selectPair(item)} aria-label={`查看 ${pairName(item)}${marketOf(item) === 'usdm' ? ' USDT 永续' : ''} 详情`}><span className="coin-avatar">{item.baseAsset.slice(0, 1)}</span><span className="watch-identity"><strong>{item.baseAsset}<small>/{item.quoteAsset}</small></strong><small>{marketLabel(item)} · {quoteStatus(itemQuote, item)}{marketOf(item) === 'usdm' ? ' · 最新成交价' : ''}</small></span><span className="watch-value"><strong title={itemQuote ? `${formatPrice(itemQuote.price)} ${item.quoteAsset}` : undefined}>{itemQuote ? formatPrice(itemQuote.price) : '--'} <small>{item.quoteAsset}</small></strong><small className={changeClass(itemQuote?.changePercent)}>{formatChange(itemQuote?.changePercent ?? null)}</small></span><ChevronRight size={15} className="row-chevron"/></button><button className="remove-button" aria-label={`移除 ${pairName(item)}${marketOf(item) === 'usdm' ? ' USDT 永续' : ''}`} title={settings.watchlist.length <= 1 ? '至少保留一个币对' : '移除自选'} disabled={busy || settings.watchlist.length <= 1} onClick={() => save({watchlist: settings.watchlist.filter(entry => pairKey(entry) !== pairKey(item))})}><X size={14}/></button></div>; })}</div>
         </section>
       </>}
-      {view === 'search' && <div className="search-overlay"><section className="search-panel" aria-label="搜索币对"><div className="section-head"><div><span className="eyebrow">FIND A PAIR</span><h2>添加币对</h2></div><button className="icon-button" aria-label="关闭搜索" onClick={() => setView('home')}><X size={18}/></button></div><label className="search-field"><Search size={17}/><input type="search" autoFocus placeholder="搜索 BTC、ETHBTC 或 USDT" value={search} onChange={event => setSearch(event.target.value)} aria-label="搜索币对"/></label><p className="search-hint">优先显示 USDT 交易对 · 选择后可查看详情</p><div className="search-results">{filteredSymbols.length ? filteredSymbols.map(item => <button key={item.symbol} onClick={() => selectPair(item)} aria-label={`选择 ${pairName(item)}`}><span className="coin-avatar">{item.baseAsset.slice(0, 1)}</span><span><strong>{pairName(item)}</strong><small>{item.symbol}</small></span><ChevronRight size={16}/></button>) : <p className="empty-results">没有找到相关币对</p>}</div></section></div>}
+      {view === 'search' && <div className="search-overlay"><section className="search-panel" aria-label="搜索币对">
+        <div className="section-head"><div><span className="eyebrow">FIND A PAIR</span><h2>添加币对</h2></div><button className="icon-button" aria-label="关闭搜索" onClick={() => setView('home')}><X size={18}/></button></div>
+        <div className="market-tabs" role="tablist" aria-label="选择市场">
+          {(['spot', 'usdm'] as const).map(market => <button key={market} type="button" role="tab" aria-selected={searchMarket === market} onClick={() => { setSearchMarket(market); void loadCatalog(market); }}>{market === 'spot' ? '现货' : 'USDT 永续'}</button>)}
+        </div>
+        <label className="search-field"><Search size={17}/><input type="search" autoFocus placeholder="搜索 BTC、BTW 或 USDT" value={search} onChange={event => setSearch(event.target.value)} aria-label="搜索币对"/></label>
+        <p className="search-hint">{searchMarket === 'spot' ? '优先显示 USDT 交易对' : 'USDT 结算永续合约 · 最新成交价'} · 选择后可查看详情</p>
+        <div className="search-results" role="tabpanel" aria-label={`${searchMarket === 'spot' ? '现货' : 'USDT 永续'}搜索结果`}>
+          {filteredSymbols.length ? filteredSymbols.map(item => <button key={pairKey(item)} onClick={() => selectPair(item)} aria-label={`选择 ${pairName(item)}${marketOf(item) === 'usdm' ? ' USDT 永续' : ''}`}><span className="coin-avatar">{item.baseAsset.slice(0, 1)}</span><span><strong>{pairName(item)}</strong><small>{item.symbol} · {marketLabel(item)}</small></span><ChevronRight size={16}/></button>)
+            : <div className="empty-results"><p>{catalogLoading[searchMarket] ? '正在加载币对…' : catalogErrors[searchMarket] || '没有找到相关币对'}</p><button type="button" className="alternate-market" onClick={() => { const next = searchMarket === 'spot' ? 'usdm' : 'spot'; setSearchMarket(next); void loadCatalog(next); }}>试试{searchMarket === 'spot' ? 'USDT 永续' : '现货'}</button></div>}
+        </div>
+      </section></div>}
     </main>
-    <footer><span>BINANCE <i/> SPOT</span><span>24h 涨跌幅 · 行情仅供参考</span></footer>
+    <footer><span>BINANCE <i/> SPOT / USDT 永续</span><span>24h 涨跌幅 · 行情仅供参考</span></footer>
   </div>;
 }
 

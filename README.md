@@ -1,6 +1,6 @@
 # 币价一瞥 · Coin Glance
 
-一个在 Chrome 工具栏显示币安现货价格的 Manifest V3 扩展。React + TypeScript + Vite，无后端、无需 API Key。
+一个在 Chrome 工具栏显示币安现货与 USDT 永续价格的 Manifest V3 扩展。React + TypeScript + Vite，无后端、无需 API Key。
 
 ## 安装与使用
 
@@ -16,20 +16,22 @@ npm run build
 3. 在 Chrome 扩展菜单中将「币价一瞥」固定到工具栏。
 4. 点击图标管理自选、切换角标关注币对和显示偏好。鼠标悬停图标可查看完整价格、计价币种和更新时间。
 
-`npm run package` 生成 `artifacts/coin-glance-0.1.0.zip`；分享安装时先解压，再加载解压后的目录。更新代码并构建后，在扩展管理页点击重新加载。
+`npm run package` 生成 `artifacts/coin-glance-0.2.0.zip`；分享安装时先解压，再加载解压后的目录。更新代码并构建后，在扩展管理页点击重新加载。0.2.0 新增币安合约行情域名权限，Chrome 如提示权限变更，需要确认后重新启用。旧版自选与设置保留。
+
+查看 BTW：点击「添加币对」→「USDT 永续」→ 搜索 `BTW` 或 `BTWUSDT` → 选择 `BTW/USDT` →「固定到角标」。合约展示**最新成交价**，不是标记价格。现货与永续可同时加入自选，同名币对分别保存，不会互相覆盖。
 
 ## 首版功能
 
 - 默认关注 BTC、ETH 等 10 个 USDT 交易对，最多 20 个自选，至少保留 1 个。
 - 工具栏显示价格或 24 小时涨跌幅，支持固定币对、5 / 10 / 15 秒轮换。
-- 币安现货币对搜索、详情、加入 / 移除自选、固定到角标，准确展示 USDT、BTC 等计价单位。
+- 现货与 USDT 永续分市场搜索、详情、加入 / 移除自选、固定到角标，准确展示市场和计价单位。
 - 浅色 / 深色 / 跟随系统，涨绿跌红或涨红跌绿。
 - WebSocket 推送，REST 批量补数；断线重连、限流退避、请求超时、旧响应防覆盖。
 - 断网保留最后价格；超过 60 秒显示缓存状态，角标变灰，悬浮说明包含更新时间。
 
 角标空间很小，最多显示 4 个字符：`76k` 表示约 76,000，`1e-5` 表示约 0.00001。极端数值显示 `TINY` / `HUGE`，完整价格以悬浮说明和详情为准。涨跌幅角标省略 `%`，绝对值达到 100% 时显示 `+99+` / `-99+`。USDT 是实际计价资产，界面不会把它替换成美元符号。轮换时当前币对以图标悬浮说明为准。
 
-详情中的非自选币对是打开时的快照，加入自选后持续订阅；未加入自选的详情超过 60 秒会显示缓存。当前版本不包含交易、账户连接、合约、提醒或资产管理。
+详情中的非自选币对是打开时的快照，加入自选后持续订阅；未加入自选的详情超过 60 秒会显示缓存。当前版本不包含交易、账户连接、币本位或交割合约、提醒或资产管理。
 
 ## 数据与权限
 
@@ -37,6 +39,8 @@ npm run build
 
 - REST：`https://data-api.binance.vision/api/v3/`，使用 `exchangeInfo` 与批量 `ticker/24hr`。
 - WebSocket：`wss://data-stream.binance.vision:443/stream`，订阅自选的 `@ticker`（约每秒推送）。
+- 合约 REST：`https://fapi.binance.com/fapi/v1/`，使用 `exchangeInfo` 和单币 `ticker/24hr?symbol=...`，最多 4 个并发；仅纳入交易中的 USDT 结算永续。
+- 合约 WebSocket：`wss://fstream.binance.com/market/stream`，订阅 `@ticker`（约每两秒推送）。两个市场独立缓存、限流和重连，互不混价。
 - 每 20 秒发送合法的订阅查询作为连接保活；Chrome alarm 每 30 秒检查恢复，后台启动时补建缺失 alarm。
 - 行情缓存最多每 15 秒写入一次，弹窗和角标更新最多约每秒一次。低活跃交易对可能依靠 REST 补齐。
 
@@ -52,6 +56,7 @@ npm run check        # TypeScript、单元/组件测试、生产构建与资源�
 npx playwright install chromium
 npm run test:e2e     # 隔离 Chromium 配置中加载真正的扩展，使用可复现行情
 node scripts/live-smoke.mjs # 可选：验证本机真实币安连接，需要网络，不在 CI 中执行
+node scripts/live-smoke.mjs --usdm # 可选：实际搜索 BTW 永续、固定角标并验证实时推送
 npm run package     # 构建安装包，需要系统 zip 命令
 ```
 

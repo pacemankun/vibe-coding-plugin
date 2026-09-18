@@ -10,6 +10,8 @@ import type { MarketSymbol, PopupBridge, Quote, Snapshot } from '../src/shared/t
 const btc: MarketSymbol = { symbol: 'BTCUSDT', baseAsset: 'BTC', quoteAsset: 'USDT' };
 const ethBtc: MarketSymbol = { symbol: 'ETHBTC', baseAsset: 'ETH', quoteAsset: 'BTC' };
 const solBtc: MarketSymbol = { symbol: 'SOLBTC', baseAsset: 'SOL', quoteAsset: 'BTC' };
+const futureBtc: MarketSymbol = { ...btc, market: 'usdm' };
+const btw: MarketSymbol = { symbol: 'BTWUSDT', baseAsset: 'BTW', quoteAsset: 'USDT', market: 'usdm' };
 
 function quote(symbol: MarketSymbol, price: string, receivedAt = Date.now()): Quote {
   return { ...symbol, price, changePercent: 1.25, receivedAt, eventTime: receivedAt, source: 'stream' };
@@ -208,7 +210,7 @@ describe('popup', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('目录网络故障');
     await userEvent.click(screen.getByRole('button', { name: '添加币对' }));
     await userEvent.type(screen.getByRole('searchbox'), 'ETHBTC');
-    expect(screen.getByText('没有找到相关币对')).toBeInTheDocument();
+    expect(screen.getByRole('tabpanel', { name: '现货搜索结果' })).toHaveTextContent('目录网络故障');
     await userEvent.click(screen.getByRole('button', { name: '关闭搜索' }));
     await userEvent.click(screen.getByRole('button', { name: '刷新行情' }));
     await within(screen.getByTestId('focus-quote')).findByText('110,000');
@@ -216,5 +218,56 @@ describe('popup', () => {
     expect(await screen.findByRole('button', { name: /选择 ETH\/BTC/ })).toBeInTheDocument();
     act(() => emit(snapshot()));
     expect(bridge.getSymbols).toHaveBeenCalledTimes(2);
+  });
+
+  it('searches the USDT perpetual catalog and pins BTW with its market key', async () => {
+    const { bridge } = makeBridge();
+    bridge.getSymbols = vi.fn(async market => market === 'usdm' ? [btw] : [btc, ethBtc]);
+    bridge.getQuote = vi.fn(async symbol => quote(symbol, '0.125000'));
+    render(<App bridge={bridge} />);
+    await userEvent.click(screen.getByRole('button', { name: '添加币对' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'USDT 永续' }));
+    await userEvent.type(screen.getByRole('searchbox'), 'BTW');
+    await userEvent.click(await screen.findByRole('button', { name: /选择 BTW\/USDT/ }));
+    const detail = screen.getByTestId('pair-detail');
+    expect(detail).toHaveTextContent('USDT 永续');
+    expect(detail).toHaveTextContent('最新成交价');
+    await userEvent.click(within(detail).getByRole('button', { name: '固定到角标' }));
+    await waitFor(() => expect(within(screen.getByTestId('focus-quote')).getByText('BTW')).toBeInTheDocument());
+    expect(bridge.updateSettings).toHaveBeenCalledWith(expect.objectContaining({ badgeSymbol: 'usdm:BTWUSDT' }));
+  });
+
+  it('keeps spot and perpetual quotes separate for the same symbol', async () => {
+    const state = snapshot();
+    state.settings.watchlist = [btc, futureBtc];
+    state.settings.badgeSymbol = 'usdm:BTCUSDT';
+    state.quotes = { BTCUSDT: quote(btc, '100000'), 'usdm:BTCUSDT': quote(futureBtc, '99000') };
+    state.connection.status = 'degraded';
+    state.connections = {
+      spot: { status: 'offline', message: '现货离线', lastMessageAt: null },
+      usdm: { status: 'live', message: '合约实时', lastMessageAt: Date.now() },
+    };
+    const { bridge } = makeBridge(state);
+    render(<App bridge={bridge} />);
+    const focus = await screen.findByTestId('focus-quote');
+    expect(within(focus).getByText('99,000')).toBeInTheDocument();
+    expect(within(focus).getByText('实时行情')).toBeInTheDocument();
+    expect(within(focus).getByText('USDT 永续')).toBeInTheDocument();
+    const watch = screen.getByRole('region', { name: '自选行情' });
+    expect(within(watch).getByRole('button', { name: '查看 BTC/USDT 详情' })).toHaveTextContent('100,000');
+    expect(within(watch).getByRole('button', { name: '查看 BTC/USDT USDT 永续 详情' })).toHaveTextContent('99,000');
+  });
+
+  it('does not show a late spot catalog response on the perpetual tab', async () => {
+    let resolveSpot!: (value: MarketSymbol[]) => void;
+    const { bridge } = makeBridge();
+    bridge.getSymbols = vi.fn(market => market === 'usdm' ? Promise.resolve([btw]) : new Promise<MarketSymbol[]>(resolve => { resolveSpot = resolve; }));
+    render(<App bridge={bridge} />);
+    await userEvent.click(screen.getByRole('button', { name: '添加币对' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'USDT 永续' }));
+    expect(await screen.findByRole('button', { name: /选择 BTW\/USDT/ })).toBeInTheDocument();
+    await act(async () => resolveSpot([ethBtc]));
+    expect(screen.getByRole('button', { name: /选择 BTW\/USDT/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /选择 ETH\/BTC/ })).not.toBeInTheDocument();
   });
 });

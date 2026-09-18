@@ -1,4 +1,7 @@
+export type MarketType = 'spot' | 'usdm';
 export interface MarketSymbol {
+  /** Missing on version 0.1 data, which always means spot. */
+  market?: MarketType;
   symbol: string;
   baseAsset: string;
   quoteAsset: string;
@@ -30,11 +33,12 @@ export interface Snapshot {
     message: string;
     lastMessageAt: number | null;
   };
+  connections?: Partial<Record<MarketType, Snapshot['connection']>>;
 }
 
 export type Request =
   | { type: 'GET_STATE' }
-  | { type: 'GET_SYMBOLS' }
+  | { type: 'GET_SYMBOLS'; market?: MarketType }
   | { type: 'GET_QUOTE'; symbol: MarketSymbol }
   | { type: 'UPDATE_SETTINGS'; patch: Partial<Omit<Settings, 'version'>> }
   | { type: 'REFRESH' };
@@ -42,7 +46,7 @@ export type Request =
 export type Response<T> = { ok: true; data: T } | { ok: false; error: string };
 export interface PopupBridge {
   getState(): Promise<Snapshot>;
-  getSymbols(): Promise<MarketSymbol[]>;
+  getSymbols(market?: MarketType): Promise<MarketSymbol[]>;
   getQuote(symbol: MarketSymbol): Promise<Quote>;
   updateSettings(patch: Partial<Omit<Settings, 'version'>>): Promise<Snapshot>;
   refresh(): Promise<Snapshot>;

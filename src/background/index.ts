@@ -1,7 +1,8 @@
 import { MarketEngine } from '../market/engine';
 import { BinanceClient } from '../market/binance';
 import { applySettingsPatch, isMarketSymbol, isRecord, normalizeSettings } from '../shared/settings';
-import type { MarketSymbol, Quote, Snapshot } from '../shared/types';
+import type { MarketSymbol, MarketType, Quote, Snapshot } from '../shared/types';
+import { marketOf, pairKey } from '../shared/market';
 import { ensureAlarm, HEALTH_ALARM } from './alarm';
 import { createBadge } from './badge';
 
@@ -56,13 +57,13 @@ function onState(state:Snapshot) {
 function getRuntime():Promise<Runtime> {
   if(initialization)return initialization;
   initialization=(async()=>{
-    const saved=await chrome.storage.local.get(['settings','quotes','catalog']);
+    const saved=await chrome.storage.local.get(['settings','quotes','catalog','catalogUsdm']);
     const settings=normalizeSettings(saved.settings);
     if(!saved.settings)await chrome.storage.local.set({settings});
     await ensureAlarm(chrome.alarms);
-    const storedCatalog=isRecord(saved.catalog) && Array.isArray(saved.catalog.symbols) && typeof saved.catalog.updatedAt==='number'
-      ? {symbols:saved.catalog.symbols.filter(isMarketSymbol),updatedAt:saved.catalog.updatedAt}:undefined;
-    const client=new BinanceClient({catalog:storedCatalog,onCatalog:(symbols,updatedAt)=>{void chrome.storage.local.set({catalog:{symbols,updatedAt}}).catch(()=>{});}});
+    const readCatalog=(value:unknown,market:MarketType)=>isRecord(value) && Array.isArray(value.symbols) && typeof value.updatedAt==='number'
+      ? {symbols:value.symbols.filter(isMarketSymbol).filter(pair=>marketOf(pair)===market),updatedAt:value.updatedAt}:undefined;
+    const client=new BinanceClient({catalogs:{spot:readCatalog(saved.catalog,'spot'),usdm:readCatalog(saved.catalogUsdm,'usdm')},onCatalog:(symbols,updatedAt,market='spot')=>{void chrome.storage.local.set({[market==='usdm'?'catalogUsdm':'catalog']:{symbols,updatedAt}}).catch(()=>{});}});
     const engine=new MarketEngine({client,settings,quotes:isRecord(saved.quotes)?saved.quotes as Record<string,Quote>:undefined});
     engine.subscribe(onState);onState(engine.getSnapshot());paint();
     setInterval(paint,1000);
@@ -77,12 +78,15 @@ async function handleMessage(message:unknown):Promise<unknown> {
   const {engine,client}=await getRuntime();
   switch(message.type) {
     case 'GET_STATE':return engine.getSnapshot();
-    case 'GET_SYMBOLS':return client.getSymbols();
+    case 'GET_SYMBOLS': {
+      if(message.market!==undefined && message.market!=='spot' && message.market!=='usdm')throw new Error('不支持的行情市场');
+      return client.getSymbols(false,message.market??'spot');
+    }
     case 'GET_QUOTE': {
       if(!isMarketSymbol(message.symbol))throw new Error('交易对格式无效');
       const requested=message.symbol;
-      const catalog=await client.getSymbols();
-      const pair=catalog.find(pair=>pair.symbol===requested.symbol);
+      const catalog=await client.getSymbols(false,marketOf(requested));
+      const pair=catalog.find(pair=>samePair(pair,requested));
       if(!pair)throw new Error('该交易对当前不可用');
       const quotes=await client.getQuotes([pair]);return quotes[0];
     }
@@ -91,9 +95,10 @@ async function handleMessage(message:unknown):Promise<unknown> {
       const operation=settingsQueue.then(async()=>{
         const current=engine.getSnapshot().settings;
         const next=applySettingsPatch(current,message.patch);
-        const added=next.watchlist.filter(pair=>!current.watchlist.some(old=>old.symbol===pair.symbol));
+        const added=next.watchlist.filter(pair=>!current.watchlist.some(old=>samePair(old,pair)));
         if(added.length) {
-          const catalog=await client.getSymbols();
+          const markets=[...new Set(added.map(marketOf))];
+          const catalog=(await Promise.all(markets.map(market=>client.getSymbols(false,market)))).flat();
           if(!added.every(pair=>catalog.some(entry=>samePair(entry,pair))))throw new Error('新增交易对当前不可交易，请刷新目录');
         }
         await chrome.storage.local.set({settings:next});
@@ -104,7 +109,7 @@ async function handleMessage(message:unknown):Promise<unknown> {
     default:throw new Error('不支持的操作');
   }
 }
-function samePair(a:MarketSymbol,b:MarketSymbol){return a.symbol===b.symbol && a.baseAsset===b.baseAsset && a.quoteAsset===b.quoteAsset;}
+function samePair(a:MarketSymbol,b:MarketSymbol){return pairKey(a)===pairKey(b) && a.baseAsset===b.baseAsset && a.quoteAsset===b.quoteAsset;}
 
 // Register listeners synchronously so MV3 can wake this worker for any event.
 chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{

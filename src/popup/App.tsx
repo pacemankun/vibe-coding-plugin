@@ -174,7 +174,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
 
   return <div className="popup-shell" data-theme={settings.theme} data-color-scheme={settings.colorScheme}>
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">◈</span><div><strong>币价一瞥</strong><small>COIN GLANCE</small></div></div>
+      <div className="brand"><img className="brand-mark" src="icons/128.png" alt=""/><div><strong>蛋壳币价</strong><small>DANKE COIN</small></div></div>
       <div className="top-actions">
         <span className={`connection ${state?.connection.status ?? (error ? 'offline' : 'connecting')}`} title={state?.connection.message ?? (error || '正在连接')}><i />{state ? statusText[state.connection.status] : error ? '不可用' : '连接中'}</span>
         <button type="button" className="icon-button" aria-label="刷新行情" title="刷新行情" onClick={refresh} disabled={busy}><RefreshCw size={17} /></button>

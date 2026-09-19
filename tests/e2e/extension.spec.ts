@@ -32,7 +32,7 @@ test('real MV3 extension: toolbar, pair units, updates, offline cache and persis
     await page.getByRole('button', { name: '刷新行情', exact: true }).click();
     await expect(page.getByTestId('focus-quote')).toContainText('67,482.36');
     await expect(page.getByText('交互预览 · 示例数据')).toHaveCount(0);
-    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('67k');
+    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('067k');
     expect(await worker.evaluate(async () => (await chrome.alarms.get('coin-glance-health'))?.periodInMinutes)).toBe(.5);
     await page.getByRole('button', { name: '添加币对', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索币对' }).fill('ETHBTC');

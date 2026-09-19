@@ -16,10 +16,10 @@ export function createBadge(state:Snapshot,now=Date.now()) {
   const live=connection.status==='live' && !stale;
   const up=quote?.changePercent!==null && quote?.changePercent!==undefined && quote.changePercent>=0;
   const color=!live || quote?.changePercent===null?'#64748b':up===(state.settings.colorScheme==='green-up')?'#13865f':'#d64854';
-  const text=!quote?(connection.status==='connecting'?'…':'--'):state.settings.badgeMode==='change'?formatBadgeChange(quote.changePercent):formatBadgePrice(quote.price);
+  const text=!quote?(connection.status==='connecting'?'....':'----'):state.settings.badgeMode==='change'?formatBadgeChange(quote.changePercent):formatBadgePrice(quote.price);
   const time=quote?new Date(quote.receivedAt).toLocaleString('zh-CN',{hour12:false}):'尚未收到';
   const status=!quote?'等待行情':stale?'缓存已过期':live?'实时行情':'最近报价 · 推送未连接';
-  const title=[`币价一瞥 · ${pair.baseAsset}/${pair.quoteAsset} · ${marketLabel(pair)}`,
+  const title=[`蛋壳币价 · ${pair.baseAsset}/${pair.quoteAsset} · ${marketLabel(pair)}`,
     marketOf(pair)==='usdm'?'最新成交价（不是标记价格）':'现货最新价',
     quote?`${formatPrice(quote.price)} ${pair.quoteAsset}`:'暂无有效价格',
     `24 小时涨跌：${formatChange(quote?.changePercent??null)}`,

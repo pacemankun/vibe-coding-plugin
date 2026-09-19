@@ -1,4 +1,6 @@
-# Coin Glance Implementation Plan
+# 蛋壳币价第一版实施计划（历史记录）
+
+> 本文记录 0.1.0 的实施过程；当前功能和名称以根目录 README 为准。文件路径保留以兼容既有引用。
 
 > **For agentic workers:** Use superpowers:subagent-driven-development to implement and review bounded tasks. User explicitly requested development in this directory and GitHub creation/push; do not ask again for these actions.
 

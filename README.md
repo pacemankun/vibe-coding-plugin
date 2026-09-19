@@ -1,6 +1,8 @@
 # 蛋壳币价
 
-一个在 Chrome 工具栏显示币安现货与 USDT 永续价格的 Manifest V3 扩展。React + TypeScript + Vite，无后端、无需 API Key。
+<img src="public/icons/128.png" alt="蛋壳币价柴犬图标" width="80" height="80">
+
+蛋壳币价（Danke Coin）是在 Chrome 工具栏显示币安现货与 USDT 永续价格的 Manifest V3 扩展。React + TypeScript + Vite，无后端、无需 API Key。
 
 ## 安装与使用
 
@@ -16,14 +18,14 @@ npm run build
 3. 在 Chrome 扩展菜单中将「蛋壳币价」固定到工具栏。
 4. 点击图标管理自选、切换角标关注币对和显示偏好。鼠标悬停图标可查看完整价格、计价币种和更新时间。
 
-`npm run package` 生成 `artifacts/danke-coin-0.2.1.zip`；分享安装时先解压，再加载解压后的目录。更新代码并构建后，在扩展管理页点击重新加载。0.2.0 新增币安合约行情域名权限，Chrome 如提示权限变更，需要确认后重新启用。旧版自选与设置保留。
+日常更新只需执行 `npm run build`，再到扩展管理页点击「重新加载」，继续使用原来的 `dist`。仅在需要分享或归档时执行 `npm run package`，生成 `artifacts/danke-coin-0.2.1.zip`；ZIP 必须先解压，再加载解压后的目录。0.2.0 新增币安合约行情域名权限，Chrome 如提示权限变更，需要确认后重新启用。旧版自选与设置保留。
 
 查看 BTW：点击「添加币对」→「USDT 永续」→ 搜索 `BTW` 或 `BTWUSDT` → 选择 `BTW/USDT` →「固定到角标」。合约展示**最新成交价**，不是标记价格。现货与永续可同时加入自选，同名币对分别保存，不会互相覆盖。
 
-## 首版功能
+## 当前功能（0.2.1）
 
 - 默认关注 BTC、ETH 等 10 个 USDT 交易对，最多 20 个自选，至少保留 1 个。
-- 工具栏显示价格或 24 小时涨跌幅，支持固定币对、5 / 10 / 15 秒轮换。
+- 透明柴犬头像；工具栏价格或 24 小时涨跌幅统一显示 4 个字符，支持固定币对、5 / 10 / 15 秒轮换。
 - 现货与 USDT 永续分市场搜索、详情、加入 / 移除自选、固定到角标，准确展示市场和计价单位。
 - 浅色 / 深色 / 跟随系统，涨绿跌红或涨红跌绿。
 - WebSocket 推送，REST 批量补数；断线重连、限流退避、请求超时、旧响应防覆盖。
@@ -57,7 +59,8 @@ npx playwright install chromium
 npm run test:e2e     # 隔离 Chromium 配置中加载真正的扩展，使用可复现行情
 node scripts/live-smoke.mjs # 可选：验证本机真实币安连接，需要网络，不在 CI 中执行
 node scripts/live-smoke.mjs --usdm # 可选：实际搜索 BTW 永续、固定角标并验证实时推送
-npm run package     # 构建安装包，需要系统 zip 命令
+npm run build       # 日常构建：更新 dist，不生成 ZIP
+npm run package     # 可选：分享 / 归档 ZIP，需要系统 zip 命令
 ```
 
 源码分为 `src/shared`（设置、精度、消息类型）、`src/market`（请求与连接状态）、`src/background`（Chrome 生命周期 / 角标 / 存储）、`src/popup`（React 界面）。后台是唯一行情源，弹窗通过消息与 port 订阅快照。生产包不包含预览行情。
@@ -67,3 +70,7 @@ npm run package     # 构建安装包，需要系统 zip 命令
 ## GitHub 自动检查
 
 CI 配置保存在 [docs/github-actions-check.yml](docs/github-actions-check.yml)，目前作为模板提供，尚未启用。首次上传使用的 GitHub OAuth 凭据没有 `workflow` 权限，GitHub 因此拒绝直接上传工作流文件；现有 SSH 也尚未配置成功。具备相应权限后，将模板移至 `.github/workflows/check.yml` 并提交，即可在 push / PR 时运行类型检查、测试、构建和浏览器集成测试。本地验证不依赖此权限。
+
+## 维护约定
+
+统一产品名称为「蛋壳币价」，英文辅助名称为「Danke Coin」。仓库和 npm 工程标识保留 `vibe-coding-plugin`；历史文档路径和后台 alarm 标识保留以兼容现有引用与安装。产品改名、图标和版本变更需要检查扩展元数据、界面、README、GitHub 简介、文档和构建产物，具体见 [AGENTS.md](AGENTS.md)。

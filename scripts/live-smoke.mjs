@@ -34,7 +34,7 @@ try {
     const visible = await page.locator('[data-testid="focus-quote"] .focus-price strong').innerText();
     const visibleStatus=await page.locator('[data-testid="focus-quote"] .fresh-label').innerText();
     const connected=futures?snapshot.data?.connections?.usdm?.status==='live' && snapshot.data?.quotes?.['usdm:BTWUSDT']?.source==='stream':snapshot.data?.connection.status==='live' && Object.keys(snapshot.data.quotes).length===10;
-    if (snapshot.ok && connected && badge !== '…' && badge !== '--' && visible !== '--' && (!futures || visibleStatus==='实时行情')) break;
+    if (snapshot.ok && connected && badge !== '....' && badge !== '----' && visible !== '--' && (!futures || visibleStatus==='实时行情')) break;
     await delay(500);
   } while (Date.now() < deadline);
   if (!snapshot?.ok || (futures?snapshot.data.connections?.usdm?.status:snapshot.data.connection.status) !== 'live') throw new Error(`Live connection unavailable: ${JSON.stringify(snapshot?.data?.connections ?? snapshot)}`);
@@ -45,7 +45,7 @@ try {
   await mkdir('artifacts', { recursive: true });
   await page.screenshot({ path: futures?'artifacts/popup-usdm-live.png':'artifacts/popup-live.png' });
   console.log(JSON.stringify({ ...result, pageErrors: errors }, null, 2));
-  if (errors.length || result.status !== 'live' || result.quotes !== (futures?11:10) || !result.streamedQuotes || (futures && result.source!=='stream') || ['…','--',''].includes(result.badge)) throw new Error('Live extension verification failed');
+  if (errors.length || result.status !== 'live' || result.quotes !== (futures?11:10) || !result.streamedQuotes || (futures && result.source!=='stream') || ['....','----',''].includes(result.badge)) throw new Error('Live extension verification failed');
 } finally {
   await context.close();
   await rm(profile, { recursive: true, force: true });

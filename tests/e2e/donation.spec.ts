@@ -31,6 +31,11 @@ test('real extension displays three clean, readable payment QR codes', async ({}
     await feed.evaluate(element => (element as HTMLButtonElement).click());
     await expect(page.locator('.donation-burst')).toHaveCount(1);
     expect(await page.locator('.donation-burst i').first().evaluate(element => getComputedStyle(element).animationDuration)).toBe('0.3s');
+    const burstOrigin = await page.locator('.donation-burst').evaluate(element => element.getBoundingClientRect().left);
+    const buttonRight = await feed.evaluate(element => element.getBoundingClientRect().right);
+    expect(burstOrigin).toBeGreaterThanOrEqual(buttonRight + 6);
+    const sparkColors = await page.locator('.donation-burst i').evaluateAll(elements => elements.map(element => getComputedStyle(element).backgroundColor));
+    expect(new Set(sparkColors).size).toBe(8);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByRole('dialog', { name: '支持蛋壳币价' })).toBeVisible();
     const dialogBounds = await page.getByRole('dialog').boundingBox();

@@ -162,7 +162,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   const selectedPinned = !!selected && settings.badgeSymbol === pairKey(selected) && settings.rotationSeconds === 0;
   const changeClass = (change: number | null | undefined) => {
     if (change == null) return '';
-    return (change >= 0) === (settings.colorScheme === 'green-up') ? 'positive' : 'negative';
+    return change >= 0 ? 'positive' : 'negative';
   };
   const quoteStatus = (item: Quote | undefined, pair: MarketSymbol | undefined) => {
     if (!item) return '等待行情';
@@ -173,7 +173,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     return item.source === 'rest' ? '最新快照' : '实时行情';
   };
 
-  return <div className="popup-shell" data-theme={settings.theme} data-color-scheme={settings.colorScheme}>
+  return <div className="popup-shell" data-theme={settings.theme}>
     <header className="topbar">
       <div className="brand"><img className="brand-mark" src="icons/128.png" alt=""/><div><strong>蛋壳币价</strong><small>DANKE COIN</small></div></div>
       <div className="top-actions">
@@ -191,7 +191,6 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
         <SettingGroup title="角标轮换" note={focusSymbol ? '固定到角标会关闭轮换；隐藏角标会停止轮换。' : '请先在币对详情中固定一个币对。'} options={[[0,'固定'],[5,'5 秒'],[10,'10 秒'],[15,'15 秒']]} value={settings.rotationSeconds} disabled={busy || !focusSymbol} onSelect={value => save({ rotationSeconds: value as Settings['rotationSeconds'] })}/>
         <button className="outline-button badge-hide" disabled={busy || !focusSymbol} onClick={() => save({badgeSymbol:null,rotationSeconds:0})}>隐藏角标</button>
         <SettingGroup title="外观" options={[["system",'跟随系统'],['light','浅色'],['dark','深色']]} value={settings.theme} disabled={busy} onSelect={value => save({ theme: value as Settings['theme'] })}/>
-        <SettingGroup title="涨跌颜色" options={[["green-up",'涨绿跌红'],['red-up','涨红跌绿']]} value={settings.colorScheme} disabled={busy} onSelect={value => save({ colorScheme: value as Settings['colorScheme'] })}/>
       </section> : <>
         <div className="intro-row"><div><span className="eyebrow">YOUR MARKET AT A GLANCE</span><h1>市场概览<span className="live-spark">✳</span></h1></div><span className="market-note">现货 / USDT 永续 · 24H</span></div>
         {focusSymbol ? <section className="focus-card" data-testid="focus-quote" aria-label="角标关注行情">

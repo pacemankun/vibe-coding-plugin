@@ -23,7 +23,6 @@ export interface Settings {
   badgeMode: 'price' | 'change';
   rotationSeconds: 0 | 5 | 10 | 15;
   theme: 'light' | 'dark' | 'system';
-  colorScheme: 'green-up' | 'red-up';
 }
 
 export interface Snapshot {

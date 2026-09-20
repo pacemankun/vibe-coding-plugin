@@ -11,6 +11,11 @@ describe('settings persistence boundaries', () => {
     expect(state.badgeSymbol).toBe('usdm:BTCUSDT');
     expect(applySettingsPatch(state,{watchlist:[btc]}).badgeSymbol).toBeNull();
   });
+  it('drops the retired gain/loss palette when loading old settings and rejects new changes', () => {
+    const state=normalizeSettings({...createDefaultSettings(),colorScheme:'red-up'});
+    expect(state).not.toHaveProperty('colorScheme');
+    expect(()=>applySettingsPatch(state,{colorScheme:'green-up'})).toThrow('不支持');
+  });
   it('rejects unsupported markets and non-USDT perpetual instruments', () => {
     expect(isMarketSymbol({...btc,market:'unknown'})).toBe(false);
     expect(isMarketSymbol({...eth,market:'usdm'})).toBe(false);

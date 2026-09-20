@@ -5,6 +5,7 @@ import type { MarketSymbol, MarketType, Quote, Snapshot } from '../shared/types'
 import { marketOf, pairKey } from '../shared/market';
 import { ensureAlarm, HEALTH_ALARM } from './alarm';
 import { createBadge } from './badge';
+import { paintToolbar } from './toolbar';
 
 interface Runtime { engine:MarketEngine; client:BinanceClient; }
 let initialization:Promise<Runtime>|undefined;
@@ -34,10 +35,7 @@ function paint() {
   if(key===lastPaint)return;
   lastPaint=key;
   paintQueue=paintQueue.then(async()=>{
-    await chrome.action.setBadgeText({text:badge.text});
-    await chrome.action.setBadgeBackgroundColor({color:badge.color});
-    await chrome.action.setBadgeTextColor({color:'#ffffff'});
-    await chrome.action.setTitle({title:badge.title});
+    await paintToolbar(badge);
   }).catch(()=>{lastPaint='';});
 }
 

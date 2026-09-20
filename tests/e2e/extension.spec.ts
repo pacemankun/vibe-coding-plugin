@@ -83,7 +83,8 @@ test('real MV3 extension: toolbar, pair units, updates, offline cache and persis
     await page.getByRole('button', { name: '刷新行情', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('刷新失败');
     await expect(page.getByTestId('focus-quote')).toContainText('0.05219');
-    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeBackgroundColor({}))).toEqual([100,116,139,255]);
+    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('.052');
+    expect(await worker.evaluate(() => chrome.action.getBadgeBackgroundColor({}))).toEqual([251,228,230,255]);
     expect(await worker.evaluate(async () => ((await chrome.storage.local.get('settings')).settings as {badgeSymbol:string}).badgeSymbol)).toBe('ETHBTC');
     await mkdir('artifacts', { recursive: true });
     await page.screenshot({ path: 'artifacts/popup-dark-offline.png' });
@@ -125,7 +126,7 @@ test('browser restart restores cached quotes and settings, and recreates a missi
     await expect(page.getByTestId('focus-quote')).toContainText('缓存行情');
     await expect.poll(() => worker.evaluate(async () => (await chrome.alarms.get('coin-glance-health'))?.periodInMinutes)).toBe(.5);
     await expect.poll(() => worker.evaluate(() => chrome.action.getTitle({}))).toContain('缓存已过期');
-    expect(await worker.evaluate(() => chrome.action.getBadgeBackgroundColor({}))).toEqual([100,116,139,255]);
+    expect(await worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('.052');
     await page.getByRole('button',{name:'查看 ETH/BTC 详情',exact:true}).click();
     await page.getByRole('button',{name:'已固定 · 点击取消',exact:true}).click();
     await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('');

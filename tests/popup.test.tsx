@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/popup/App';
-import { createDefaultSettings } from '../src/shared/settings';
+import { applySettingsPatch, createDefaultSettings } from '../src/shared/settings';
 import type { MarketSymbol, PopupBridge, Quote, Snapshot } from '../src/shared/types';
 
 const btc: MarketSymbol = { symbol: 'BTCUSDT', baseAsset: 'BTC', quoteAsset: 'USDT' };
@@ -18,7 +18,7 @@ function quote(symbol: MarketSymbol, price: string, receivedAt = Date.now()): Qu
 }
 function snapshot(): Snapshot {
   return {
-    settings: createDefaultSettings(),
+    settings: {...createDefaultSettings(),badgeSymbol:'BTCUSDT'},
     quotes: { BTCUSDT: quote(btc, '101234.50000000') },
     connection: { status: 'live', message: '已连接', lastMessageAt: Date.now() },
   };
@@ -40,6 +40,40 @@ function makeBridge(initial = snapshot()) {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('popup', () => {
+  it('toggles the pinned state and keeps watchlist quotes visible with no badge', async () => {
+    const state=snapshot();
+    state.settings.badgeSymbol=null;
+    const {bridge}=makeBridge(state);
+    bridge.updateSettings=vi.fn(async patch=>{
+      state.settings=applySettingsPatch(state.settings,patch);
+      return {...state};
+    });
+    render(<App bridge={bridge}/>);
+    expect(await screen.findByText('未固定角标')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button',{name:'查看 BTC/USDT 详情'}));
+    const pin=screen.getByRole('button',{name:'固定到角标'});
+    expect(pin).toHaveAttribute('aria-pressed','false');
+    await userEvent.click(pin);
+    const unpin=await screen.findByRole('button',{name:'已固定 · 点击取消'});
+    expect(unpin).toHaveAttribute('aria-pressed','true');
+    await userEvent.click(unpin);
+    expect(await screen.findByText('未固定角标')).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'固定到角标'})).toHaveAttribute('aria-pressed','false');
+    expect(screen.getByRole('button',{name:'查看 BTC/USDT 详情'})).toHaveTextContent('101,234.5');
+    await userEvent.click(screen.getByRole('button',{name:/^设置$/}));
+    expect(screen.getByRole('button',{name:'5 秒'})).toBeDisabled();
+  });
+  it('keeps the confirmed pin if clearing it fails', async () => {
+    const {bridge}=makeBridge();
+    bridge.updateSettings=vi.fn(async()=>{throw new Error('存储失败');});
+    render(<App bridge={bridge}/>);
+    await screen.findByTestId('focus-quote');
+    await userEvent.click(screen.getByRole('button',{name:'查看 BTC/USDT 详情'}));
+    await userEvent.click(screen.getByRole('button',{name:'已固定 · 点击取消'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('存储失败');
+    expect(screen.getByRole('button',{name:'已固定 · 点击取消'})).toHaveAttribute('aria-pressed','true');
+    expect(screen.queryByText('未固定角标')).not.toBeInTheDocument();
+  });
   it('shows exact quote asset and marks an old quote cached', async () => {
     const state = snapshot();
     state.settings.watchlist = [ethBtc];
@@ -57,17 +91,17 @@ describe('popup', () => {
   it('renders the newest subscribed snapshot', async () => {
     const { bridge, emit } = makeBridge();
     render(<App bridge={bridge} />);
-    expect(await within(screen.getByTestId('focus-quote')).findByText('101,234.5')).toBeInTheDocument();
+    expect(await within(await screen.findByTestId('focus-quote')).findByText('101,234.5')).toBeInTheDocument();
     const next = snapshot();
     next.quotes.BTCUSDT = quote(btc, '99999.0000');
     emit(next);
-    expect(await within(screen.getByTestId('focus-quote')).findByText('99,999')).toBeInTheDocument();
+    expect(await within(await screen.findByTestId('focus-quote')).findByText('99,999')).toBeInTheDocument();
   });
 
   it('keeps the selected exact pair open after search closes', async () => {
     const { bridge } = makeBridge();
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: /添加币对/ }));
     await userEvent.type(screen.getByRole('searchbox'), 'ethbtc');
     await userEvent.click(await screen.findByRole('button', { name: /ETH\/BTC/ }));
@@ -82,7 +116,7 @@ describe('popup', () => {
     const { bridge } = makeBridge();
     bridge.getQuote = vi.fn((symbol) => symbol.symbol === 'ETHBTC' ? oldPromise : Promise.resolve(quote(symbol, '0.008')));
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: /添加币对/ }));
     await userEvent.click(await screen.findByRole('button', { name: /ETH\/BTC/ }));
     await userEvent.click(screen.getByRole('button', { name: /添加币对/ }));
@@ -97,7 +131,7 @@ describe('popup', () => {
     const { bridge, emit } = makeBridge();
     bridge.updateSettings = vi.fn(async () => { throw new Error('保存失败'); });
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: /设置/ }));
     await userEvent.click(screen.getByRole('button', { name: '涨跌幅' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('保存失败');
@@ -112,7 +146,7 @@ describe('popup', () => {
   it('updates an open watched-pair detail from the latest subscription', async () => {
     const { bridge, emit } = makeBridge();
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: /查看 BTC\/USDT 详情/ }));
     await waitFor(() => expect(screen.getByTestId('pair-detail')).toHaveTextContent('0.052'));
     const next = snapshot();
@@ -126,7 +160,7 @@ describe('popup', () => {
     full.settings.watchlist = [...full.settings.watchlist, ...Array.from({ length: 10 }, (_, i) => ({ symbol: `EXTRA${i}USDT`, baseAsset: `EXTRA${i}`, quoteAsset: 'USDT' }))];
     const { bridge } = makeBridge(full);
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: /添加币对/ }));
     await userEvent.click(await screen.findByRole('button', { name: /ETH\/BTC/ }));
     expect(screen.getByRole('button', { name: /固定到角标/ })).toBeDisabled();
@@ -137,7 +171,7 @@ describe('popup', () => {
     state.connection.status = 'offline';
     const { bridge, emit } = makeBridge(state);
     render(<App bridge={bridge} />);
-    const focus = screen.getByTestId('focus-quote');
+    const focus = await screen.findByTestId('focus-quote');
     await within(focus).findByText('101,234.5');
     expect(within(focus).queryByText('实时行情')).not.toBeInTheDocument();
     expect(within(focus).getByText(/缓存/)).toBeInTheDocument();
@@ -157,9 +191,9 @@ describe('popup', () => {
     const pushed = snapshot();
     pushed.quotes.BTCUSDT = quote(btc, '88000.000');
     act(() => emit(pushed));
-    await within(screen.getByTestId('focus-quote')).findByText('88,000');
+    await within(await screen.findByTestId('focus-quote')).findByText('88,000');
     await act(async () => resolveInitial(snapshot()));
-    expect(within(screen.getByTestId('focus-quote')).getByText('88,000')).toBeInTheDocument();
+    expect(within(await screen.findByTestId('focus-quote')).getByText('88,000')).toBeInTheDocument();
   });
 
   it('keeps a pushed quote when refresh resolves late', async () => {
@@ -167,14 +201,14 @@ describe('popup', () => {
     const { bridge, emit } = makeBridge();
     bridge.refresh = vi.fn(() => new Promise<Snapshot>(resolve => { resolveRefresh = resolve; }));
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: '刷新行情' }));
     const pushed = snapshot();
     pushed.quotes.BTCUSDT = quote(btc, '88000.000');
     act(() => emit(pushed));
-    await within(screen.getByTestId('focus-quote')).findByText('88,000');
+    await within(await screen.findByTestId('focus-quote')).findByText('88,000');
     await act(async () => resolveRefresh(snapshot()));
-    expect(within(screen.getByTestId('focus-quote')).getByText('88,000')).toBeInTheDocument();
+    expect(within(await screen.findByTestId('focus-quote')).getByText('88,000')).toBeInTheDocument();
   });
 
   it('keeps a newer quote while applying a confirmed settings response', async () => {
@@ -182,7 +216,7 @@ describe('popup', () => {
     const { bridge, emit } = makeBridge();
     bridge.updateSettings = vi.fn(() => new Promise<Snapshot>(resolve => { resolveSave = resolve; }));
     render(<App bridge={bridge} />);
-    await within(screen.getByTestId('focus-quote')).findByText('101,234.5');
+    await within(await screen.findByTestId('focus-quote')).findByText('101,234.5');
     await userEvent.click(screen.getByRole('button', { name: '设置' }));
     await userEvent.click(screen.getByRole('button', { name: '涨跌幅' }));
     const pushed = snapshot();
@@ -193,7 +227,7 @@ describe('popup', () => {
     await act(async () => resolveSave(confirmed));
     expect(screen.getByRole('button', { name: '涨跌幅' })).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(screen.getByRole('button', { name: '关闭设置' }));
-    expect(within(screen.getByTestId('focus-quote')).getByText('88,000')).toBeInTheDocument();
+    expect(within(await screen.findByTestId('focus-quote')).getByText('88,000')).toBeInTheDocument();
   });
 
   it('retries a missing symbol catalog on explicit refresh so search recovers', async () => {
@@ -213,7 +247,7 @@ describe('popup', () => {
     expect(screen.getByRole('tabpanel', { name: '现货搜索结果' })).toHaveTextContent('目录网络故障');
     await userEvent.click(screen.getByRole('button', { name: '关闭搜索' }));
     await userEvent.click(screen.getByRole('button', { name: '刷新行情' }));
-    await within(screen.getByTestId('focus-quote')).findByText('110,000');
+    await within(await screen.findByTestId('focus-quote')).findByText('110,000');
     await userEvent.click(screen.getByRole('button', { name: '添加币对' }));
     expect(await screen.findByRole('button', { name: /选择 ETH\/BTC/ })).toBeInTheDocument();
     act(() => emit(snapshot()));
@@ -233,7 +267,7 @@ describe('popup', () => {
     expect(detail).toHaveTextContent('USDT 永续');
     expect(detail).toHaveTextContent('最新成交价');
     await userEvent.click(within(detail).getByRole('button', { name: '固定到角标' }));
-    await waitFor(() => expect(within(screen.getByTestId('focus-quote')).getByText('BTW')).toBeInTheDocument());
+    expect(await within(await screen.findByTestId('focus-quote')).findByText('BTW')).toBeInTheDocument();
     expect(bridge.updateSettings).toHaveBeenCalledWith(expect.objectContaining({ badgeSymbol: 'usdm:BTWUSDT' }));
   });
 

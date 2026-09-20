@@ -2,14 +2,16 @@ import type { Settings, Snapshot, MarketSymbol } from '../shared/types';
 import { formatBadgeChange, formatBadgePrice, formatChange, formatPrice, isStale } from '../shared/format';
 import { connectionFor, marketLabel, marketOf, pairKey } from '../shared/market';
 
-export function getBadgePair(settings:Settings,now=Date.now()):MarketSymbol {
-  const selected=Math.max(0,settings.watchlist.findIndex(pair=>pairKey(pair)===settings.badgeSymbol));
+export function getBadgePair(settings:Settings,now=Date.now()):MarketSymbol | undefined {
+  const selected=settings.watchlist.findIndex(pair=>pairKey(pair)===settings.badgeSymbol);
+  if(selected<0)return undefined;
   const offset=settings.rotationSeconds?Math.floor(now/(settings.rotationSeconds*1000)):0;
   return settings.watchlist[(selected+offset)%settings.watchlist.length];
 }
 
 export function createBadge(state:Snapshot,now=Date.now()) {
   const pair=getBadgePair(state.settings,now);
+  if(!pair)return {text:'',color:'#64748b',title:'蛋壳币价 · 未固定角标\n点击图标查看自选行情，选择币对后可固定到角标。'};
   const quote=state.quotes[pairKey(pair)];
   const connection=connectionFor(state,pair);
   const stale=isStale(quote,now);

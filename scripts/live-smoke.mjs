@@ -25,6 +25,9 @@ try {
     await page.getByRole('searchbox',{name:'搜索币对'}).fill('BTW');
     await page.locator('.search-results button').filter({hasText:'BTW/USDT'}).click({timeout:15_000});
     await page.getByRole('button',{name:'固定到角标',exact:true}).click();
+  } else {
+    await page.getByRole('button',{name:'查看 BTC/USDT 详情',exact:true}).click();
+    await page.getByRole('button',{name:'固定到角标',exact:true}).click();
   }
   const deadline = Date.now() + 30_000;
   let snapshot;

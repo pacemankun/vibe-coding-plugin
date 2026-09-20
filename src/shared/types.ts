@@ -18,7 +18,8 @@ export interface Quote extends MarketSymbol {
 export interface Settings {
   version: 1;
   watchlist: MarketSymbol[];
-  badgeSymbol: string;
+  /** null disables the toolbar badge without changing the watchlist. */
+  badgeSymbol: string | null;
   badgeMode: 'price' | 'change';
   rotationSeconds: 0 | 5 | 10 | 15;
   theme: 'light' | 'dark' | 'system';

@@ -92,7 +92,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     }
   }, [selected, state]);
 
-  const focusSymbol = settings.watchlist.find(item => pairKey(item) === settings.badgeSymbol) ?? settings.watchlist[0];
+  const focusSymbol = settings.watchlist.find(item => pairKey(item) === settings.badgeSymbol);
   const focusQuote = focusSymbol ? state?.quotes[pairKey(focusSymbol)] : undefined;
   const filteredSymbols = useMemo(() => {
     const query = search.trim().toUpperCase();
@@ -159,6 +159,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   }
 
   const selectedInList = selected && settings.watchlist.some(item => pairKey(item) === pairKey(selected));
+  const selectedPinned = !!selected && settings.badgeSymbol === pairKey(selected) && settings.rotationSeconds === 0;
   const changeClass = (change: number | null | undefined) => {
     if (change == null) return '';
     return (change >= 0) === (settings.colorScheme === 'green-up') ? 'positive' : 'negative';
@@ -187,22 +188,23 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
       {view === 'settings' ? <section className="settings-panel" aria-label="设置">
         <div className="section-head"><div><span className="eyebrow">PREFERENCES</span><h1>偏好设置</h1></div><button className="icon-button" onClick={() => setView('home')} aria-label="关闭设置"><X size={18}/></button></div>
         <SettingGroup title="角标显示" note="浏览器图标上的简略数值，完整价格请在这里查看。" options={[['price','价格'],['change','涨跌幅']]} value={settings.badgeMode} disabled={busy} onSelect={value => save({ badgeMode: value as Settings['badgeMode'] })}/>
-        <SettingGroup title="角标轮换" note="固定到角标会关闭轮换。" options={[[0,'固定'],[5,'5 秒'],[10,'10 秒'],[15,'15 秒']]} value={settings.rotationSeconds} disabled={busy} onSelect={value => save({ rotationSeconds: value as Settings['rotationSeconds'] })}/>
+        <SettingGroup title="角标轮换" note={focusSymbol ? '固定到角标会关闭轮换；隐藏角标会停止轮换。' : '请先在币对详情中固定一个币对。'} options={[[0,'固定'],[5,'5 秒'],[10,'10 秒'],[15,'15 秒']]} value={settings.rotationSeconds} disabled={busy || !focusSymbol} onSelect={value => save({ rotationSeconds: value as Settings['rotationSeconds'] })}/>
+        <button className="outline-button badge-hide" disabled={busy || !focusSymbol} onClick={() => save({badgeSymbol:null,rotationSeconds:0})}>隐藏角标</button>
         <SettingGroup title="外观" options={[["system",'跟随系统'],['light','浅色'],['dark','深色']]} value={settings.theme} disabled={busy} onSelect={value => save({ theme: value as Settings['theme'] })}/>
         <SettingGroup title="涨跌颜色" options={[["green-up",'涨绿跌红'],['red-up','涨红跌绿']]} value={settings.colorScheme} disabled={busy} onSelect={value => save({ colorScheme: value as Settings['colorScheme'] })}/>
       </section> : <>
         <div className="intro-row"><div><span className="eyebrow">YOUR MARKET AT A GLANCE</span><h1>市场概览<span className="live-spark">✳</span></h1></div><span className="market-note">现货 / USDT 永续 · 24H</span></div>
-        <section className="focus-card" data-testid="focus-quote" aria-label="角标关注行情">
-          <div className="focus-top"><span className="focus-kicker"><span className="focus-dot"/>角标关注{focusSymbol && <span className="market-tag">{marketLabel(focusSymbol)}</span>}</span><span className="fresh-label">{quoteStatus(focusQuote, focusSymbol)}</span></div>
+        {focusSymbol ? <section className="focus-card" data-testid="focus-quote" aria-label="角标关注行情">
+          <div className="focus-top"><span className="focus-kicker"><span className="focus-dot"/>{settings.rotationSeconds ? '轮播起点' : '角标关注'}<span className="market-tag">{marketLabel(focusSymbol)}</span></span><span className="fresh-label">{quoteStatus(focusQuote, focusSymbol)}</span></div>
           <div className="focus-pair"><span className="coin-symbol">{focusSymbol?.baseAsset ?? '—'}</span><span className="pair-divider">/</span><span>{focusSymbol?.quoteAsset ?? '—'}</span></div>
           <div className="price-caption">{focusSymbol && marketOf(focusSymbol) === 'usdm' ? '最新成交价' : '最新价格'}</div><div className="focus-price"><strong title={focusQuote ? formatPrice(focusQuote.price) : undefined}>{focusQuote ? formatPrice(focusQuote.price) : '--'}</strong><span>{focusSymbol?.quoteAsset ?? ''}</span></div>
           <div className="focus-bottom"><span>过去 24 小时</span><span className={`change-pill ${changeClass(focusQuote?.changePercent)}`}>{focusQuote?.changePercent != null && focusQuote.changePercent >= 0 ? <ArrowUpRight size={14}/> : <ArrowDownRight size={14}/>} {formatChange(focusQuote?.changePercent ?? null)}</span></div>
-        </section>
+        </section> : <section className="badge-empty" aria-label="角标状态"><Pin size={20}/><div><strong>未固定角标</strong><p>选择自选币对，点击「固定到角标」即可在工具栏显示价格。</p></div></section>}
         {selected && <section className="detail-card" data-testid="pair-detail" aria-label="币对详情">
           <div className="detail-head"><div><span className="eyebrow">币对预览 · {marketLabel(selected)}</span><h2>{pairName(selected)}</h2></div><button className="icon-button" aria-label="关闭币对详情" onClick={() => { quoteRequest.current++; setSelected(null); setSelectedQuote(null); }}><X size={17}/></button></div>
           <div className="price-caption">{marketOf(selected) === 'usdm' ? '最新成交价' : '最新价格'}</div><div className="detail-price"><strong title={selectedQuote ? formatPrice(selectedQuote.price) : undefined}>{selectedQuote ? formatPrice(selectedQuote.price) : detailLoading ? '加载中…' : '--'}</strong><span>{selected.quoteAsset}</span></div>
           <div className="detail-meta"><span>{quoteStatus(selectedQuote ?? undefined, selected)}</span><span>24h {formatChange(selectedQuote?.changePercent ?? null)}</span></div>
-          <div className="detail-actions"><button className="primary-button" disabled={busy || !!selectedInList || settings.watchlist.length >= 20} onClick={() => save({ watchlist: [...settings.watchlist, selected] })}>{selectedInList ? <><Check size={15}/> 已在自选</> : settings.watchlist.length >= 20 ? '自选已满（20）' : <><Plus size={15}/> 加入自选</>}</button><button className="outline-button" disabled={busy || (!selectedInList && settings.watchlist.length >= 20)} onClick={() => save({ badgeSymbol: pairKey(selected), watchlist: selectedInList ? settings.watchlist : [...settings.watchlist, selected], rotationSeconds: 0 })}><Pin size={14}/> 固定到角标</button></div>
+          <div className="detail-actions"><button className="primary-button" disabled={busy || !!selectedInList || settings.watchlist.length >= 20} onClick={() => save({ watchlist: [...settings.watchlist, selected] })}>{selectedInList ? <><Check size={15}/> 已在自选</> : settings.watchlist.length >= 20 ? '自选已满（20）' : <><Plus size={15}/> 加入自选</>}</button><button className="outline-button badge-toggle" aria-pressed={selectedPinned} disabled={busy || !state || (!selectedInList && settings.watchlist.length >= 20)} onClick={() => save(selectedPinned ? {badgeSymbol:null,rotationSeconds:0} : { badgeSymbol: pairKey(selected), watchlist: selectedInList ? settings.watchlist : [...settings.watchlist, selected], rotationSeconds: 0 })}>{selectedPinned ? <><Check size={14}/> 已固定 · 点击取消</> : <><Pin size={14}/> 固定到角标</>}</button></div>
         </section>}
         <section className="watch-section" aria-label="自选行情"><div className="watch-head"><div><span className="eyebrow">WATCHLIST</span><h2>我的自选 <span>{settings.watchlist.length}/20</span></h2></div><button className="add-button" aria-label="添加币对" onClick={() => setView('search')}><Plus size={16}/> 添加币对</button></div>
           <div className="watch-list">{settings.watchlist.map(item => { const itemQuote = state?.quotes[pairKey(item)]; return <div className="watch-row" key={pairKey(item)}><button className="watch-main" onClick={() => selectPair(item)} aria-label={`查看 ${pairName(item)}${marketOf(item) === 'usdm' ? ' USDT 永续' : ''} 详情`}><span className="coin-avatar">{item.baseAsset.slice(0, 1)}</span><span className="watch-identity"><strong>{item.baseAsset}<small>/{item.quoteAsset}</small></strong><small>{marketLabel(item)} · {quoteStatus(itemQuote, item)}{marketOf(item) === 'usdm' ? ' · 最新成交价' : ''}</small></span><span className="watch-value"><strong title={itemQuote ? `${formatPrice(itemQuote.price)} ${item.quoteAsset}` : undefined}>{itemQuote ? formatPrice(itemQuote.price) : '--'} <small>{item.quoteAsset}</small></strong><small className={changeClass(itemQuote?.changePercent)}>{formatChange(itemQuote?.changePercent ?? null)}</small></span><ChevronRight size={15} className="row-chevron"/></button><button className="remove-button" aria-label={`移除 ${pairName(item)}${marketOf(item) === 'usdm' ? ' USDT 永续' : ''}`} title={settings.watchlist.length <= 1 ? '至少保留一个币对' : '移除自选'} disabled={busy || settings.watchlist.length <= 1} onClick={() => save({watchlist: settings.watchlist.filter(entry => pairKey(entry) !== pairKey(item))})}><X size={14}/></button></div>; })}</div>

@@ -32,7 +32,7 @@ test('BTW perpetual search, market isolation, pinning and persistent badge selec
     const page=await context.newPage();
     await page.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
     await page.getByRole('button',{name:'刷新行情',exact:true}).click();
-    await expect(page.getByTestId('focus-quote')).toContainText('60,000.12');
+    await expect(page.getByRole('button',{name:'查看 BTC/USDT 详情',exact:true})).toContainText('60,000.12');
     await page.getByRole('button',{name:'添加币对',exact:true}).click();
     await page.getByRole('tab',{name:'USDT 永续',exact:true}).click();
     await page.getByRole('searchbox',{name:'搜索币对'}).fill('BTW');

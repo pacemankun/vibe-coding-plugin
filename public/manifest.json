@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "蛋壳币价",
   "description": "在 Chrome 工具栏查看币安现货与 USDT 永续行情，支持自选、涨跌幅、轮播与断线状态。无需 API Key。",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "alarms"],
   "host_permissions": ["https://data-api.binance.vision/*", "https://fapi.binance.com/*"],

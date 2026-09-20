@@ -4,9 +4,11 @@ import { formatChange, formatPrice, isStale } from '../shared/format';
 import { createDefaultSettings } from '../shared/settings';
 import { connectionFor, marketLabel, marketOf, pairKey } from '../shared/market';
 import type { MarketSymbol, MarketType, PopupBridge, Quote, Settings, Snapshot } from '../shared/types';
+import DonationDialog from './DonationDialog';
+import { donationDetails, donationReady } from './donationConfig';
 import './popup.css';
 
-type View = 'home' | 'search' | 'settings';
+type View = 'home' | 'search' | 'settings' | 'donation';
 const statusText = { live: '实时行情', connecting: '连接中', degraded: '连接不稳定', offline: '已离线' } as const;
 const pairName = (pair: MarketSymbol) => `${pair.baseAsset}/${pair.quoteAsset}`;
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -221,7 +223,8 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
         </div>
       </section></div>}
     </main>
-    <footer><span>BINANCE <i/> SPOT / USDT 永续</span><span>24h 涨跌幅 · 行情仅供参考</span></footer>
+    <footer><span>BINANCE <i/> SPOT / USDT 永续</span>{donationReady(donationDetails) && <button type="button" className="donation-entry" onClick={()=>setView('donation')}>支持开发</button>}<span>24h 涨跌幅 · 行情仅供参考</span></footer>
+    {view==='donation' && donationReady(donationDetails) && <DonationDialog details={donationDetails} onClose={()=>setView('home')}/>}
   </div>;
 }
 

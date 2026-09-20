@@ -77,7 +77,7 @@ CI 配置保存在 [docs/github-actions-check.yml](docs/github-actions-check.yml
 
 ## Chrome 应用商店发布
 
-首次上架的步骤、隐私政策草稿、商店文案与图片资源见 [发布清单](docs/webstore/launch-checklist.md)。商店后台上传 `npm run package` 生成的 ZIP；本地加载未打包扩展仍选择 `dist`。公开隐私政策页面不要求公开本源码仓库。
+首次上架的步骤、商店文案与图片资源见 [发布清单](docs/webstore/launch-checklist.md)；公开的[隐私政策](https://pacemankun.github.io/danke-coin/privacy/)由现有 GitHub Pages 仓库承载。商店后台上传 `npm run package` 生成的 ZIP；本地加载未打包扩展仍选择 `dist`。插件源码仓库保持私有。
 
 ## 维护约定
 

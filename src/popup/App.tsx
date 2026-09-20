@@ -4,9 +4,11 @@ import { formatChange, formatPrice, isStale } from '../shared/format';
 import { createDefaultSettings } from '../shared/settings';
 import { connectionFor, marketLabel, marketOf, pairKey } from '../shared/market';
 import type { MarketSymbol, MarketType, PopupBridge, Quote, Settings, Snapshot } from '../shared/types';
+import DonationDialog from './DonationDialog';
+import { donationDetails, donationReady } from './donationConfig';
 import './popup.css';
 
-type View = 'home' | 'search' | 'settings';
+type View = 'home' | 'search' | 'settings' | 'donation';
 const statusText = { live: '实时行情', connecting: '连接中', degraded: '连接不稳定', offline: '已离线' } as const;
 const pairName = (pair: MarketSymbol) => `${pair.baseAsset}/${pair.quoteAsset}`;
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -176,6 +178,11 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   return <div className="popup-shell" data-theme={settings.theme}>
     <header className="topbar">
       <div className="brand"><img className="brand-mark" src="icons/128.png" alt=""/><div><strong>蛋壳币价</strong><small>DANKE COIN</small></div></div>
+      {donationReady(donationDetails) && <div className="donation-trigger">
+        <button type="button" className="donation-entry" onClick={() => setView('donation')}>
+          <span>投喂蛋壳</span><small className="donation-note">（支持开发）</small>
+        </button>
+      </div>}
       <div className="top-actions">
         <span className={`connection ${state?.connection.status ?? (error ? 'offline' : 'connecting')}`} title={state?.connection.message ?? (error || '正在连接')}><i />{state ? statusText[state.connection.status] : error ? '不可用' : '连接中'}</span>
         <button type="button" className="icon-button" aria-label="刷新行情" title="刷新行情" onClick={refresh} disabled={busy}><RefreshCw size={17} /></button>
@@ -223,6 +230,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
       </section></div>}
     </main>
     <footer><span>BINANCE <i/> SPOT / USDT 永续</span><span>24h 涨跌幅 · 行情仅供参考</span></footer>
+    {view==='donation' && donationReady(donationDetails) && <DonationDialog details={donationDetails} onClose={()=>setView('home')}/>}
   </div>;
 }
 

@@ -25,7 +25,7 @@ test('toolbar uses the readable native badge with one palette and clears it on u
     await page.getByRole('button',{name:'查看 BTC/USDT 详情',exact:true}).click();
     await page.getByRole('button',{name:'固定到角标',exact:true}).click();
     await expect.poll(()=>worker.evaluate(()=>chrome.action.getBadgeText({}))).toBe('.607');
-    expect(await worker.evaluate(()=>chrome.action.getBadgeBackgroundColor({}))).toEqual([251,228,230,255]);
+    expect(await worker.evaluate(()=>chrome.action.getBadgeBackgroundColor({}))).toEqual([154,246,252,255]);
     expect(await worker.evaluate(()=>chrome.action.getBadgeTextColor({}))).toEqual([48,40,43,255]);
     await page.getByRole('button',{name:'设置',exact:true}).click();
     await expect(page.getByText('涨跌颜色',{exact:true})).toHaveCount(0);

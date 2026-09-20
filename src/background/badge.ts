@@ -16,7 +16,7 @@ export function createBadge(state:Snapshot,now=Date.now()) {
   const connection=connectionFor(state,pair);
   const stale=isStale(quote,now);
   const live=connection.status==='live' && !stale;
-  const color='#fbe4e6';
+  const color='#9af6fc';
   const text=!quote?(connection.status==='connecting'?'....':'----'):state.settings.badgeMode==='change'?formatBadgeChange(quote.changePercent):formatBadgePrice(quote.price);
   const time=quote?new Date(quote.receivedAt).toLocaleString('zh-CN',{hour12:false}):'尚未收到';
   const status=!quote?'等待行情':stale?'缓存已过期':live?'实时行情':'最近报价 · 推送未连接';

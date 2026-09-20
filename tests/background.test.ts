@@ -13,7 +13,7 @@ describe('toolbar and worker recovery',()=>{
     expect(badge.text).toBe('061k');
     expect(badge.title).toContain('USDT 永续');
     expect(badge.title).toContain('最新成交价');
-    expect(badge.color).toBe('#fbe4e6');
+    expect(badge.color).toBe('#9af6fc');
   });
   it('uses the actual rotated pair and its quote currency in the tooltip',()=>{
     const settings={...createDefaultSettings(),badgeSymbol:'BTCUSDT',rotationSeconds:5 as const};
@@ -32,14 +32,14 @@ describe('toolbar and worker recovery',()=>{
     const badge=createBadge(state,100000);
     expect(badge.text).toBe('060k');
     expect(badge.title).toMatch(/缓存|过期/);
-    expect(badge.color).toBe('#fbe4e6');
+    expect(badge.color).toBe('#9af6fc');
   });
   it('keeps the toolbar palette identical for gains and losses',()=>{
     const settings={...createDefaultSettings(),badgeSymbol:'BTCUSDT'};
     const pair=settings.watchlist[0];
     for(const changePercent of [-3,0,3,null]){
       const state:Snapshot={settings,quotes:{BTCUSDT:{...pair,price:'0.6073',changePercent,receivedAt:1000,eventTime:1000,source:'stream'}},connection:{status:'live',message:'实时',lastMessageAt:1000}};
-      expect(createBadge(state,1000).color).toBe('#fbe4e6');
+      expect(createBadge(state,1000).color).toBe('#9af6fc');
     }
   });
   it('restores a missing alarm without resetting an existing scheduled alarm',async()=>{

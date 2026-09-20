@@ -84,7 +84,7 @@ test('real MV3 extension: toolbar, pair units, updates, offline cache and persis
     await expect(page.getByRole('alert')).toContainText('刷新失败');
     await expect(page.getByTestId('focus-quote')).toContainText('0.05219');
     await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('.052');
-    expect(await worker.evaluate(() => chrome.action.getBadgeBackgroundColor({}))).toEqual([251,228,230,255]);
+    expect(await worker.evaluate(() => chrome.action.getBadgeBackgroundColor({}))).toEqual([154,246,252,255]);
     expect(await worker.evaluate(async () => ((await chrome.storage.local.get('settings')).settings as {badgeSymbol:string}).badgeSymbol)).toBe('ETHBTC');
     await mkdir('artifacts', { recursive: true });
     await page.screenshot({ path: 'artifacts/popup-dark-offline.png' });

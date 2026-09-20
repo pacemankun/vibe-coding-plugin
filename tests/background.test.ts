@@ -13,11 +13,11 @@ describe('toolbar and worker recovery',()=>{
     expect(badge.text).toBe('061k');
     expect(badge.title).toContain('USDT 永续');
     expect(badge.title).toContain('最新成交价');
-    expect(badge.color).toBe('#13865f');
+    expect(badge.color).toBe('#9af6fc');
   });
   it('uses the actual rotated pair and its quote currency in the tooltip',()=>{
-    const settings={...createDefaultSettings(),rotationSeconds:5 as const};
-    const pair=getBadgePair(settings,5000);
+    const settings={...createDefaultSettings(),badgeSymbol:'BTCUSDT',rotationSeconds:5 as const};
+    const pair=getBadgePair(settings,5000)!;
     expect(pair.symbol).toBe('ETHUSDT');
     const state:Snapshot={settings,quotes:{ETHUSDT:{...pair,price:'2500.120000',changePercent:1,receivedAt:5000,eventTime:5000,source:'stream'}},connection:{status:'live',message:'实时',lastMessageAt:5000}};
     const badge=createBadge(state,5000);
@@ -26,13 +26,21 @@ describe('toolbar and worker recovery',()=>{
     expect(badge.text.length).toBeLessThanOrEqual(4);
   });
   it('keeps stale price visible but explicitly marks it as cached',()=>{
-    const settings=createDefaultSettings();
+    const settings={...createDefaultSettings(),badgeSymbol:'BTCUSDT'};
     const pair=settings.watchlist[0];
     const state:Snapshot={settings,quotes:{BTCUSDT:{...pair,price:'60000',changePercent:2,receivedAt:1000,eventTime:1000,source:'rest'}},connection:{status:'offline',message:'断网',lastMessageAt:null}};
     const badge=createBadge(state,100000);
     expect(badge.text).toBe('060k');
     expect(badge.title).toMatch(/缓存|过期/);
-    expect(badge.color).toBe('#64748b');
+    expect(badge.color).toBe('#9af6fc');
+  });
+  it('keeps the toolbar palette identical for gains and losses',()=>{
+    const settings={...createDefaultSettings(),badgeSymbol:'BTCUSDT'};
+    const pair=settings.watchlist[0];
+    for(const changePercent of [-3,0,3,null]){
+      const state:Snapshot={settings,quotes:{BTCUSDT:{...pair,price:'0.6073',changePercent,receivedAt:1000,eventTime:1000,source:'stream'}},connection:{status:'live',message:'实时',lastMessageAt:1000}};
+      expect(createBadge(state,1000).color).toBe('#9af6fc');
+    }
   });
   it('restores a missing alarm without resetting an existing scheduled alarm',async()=>{
     let scheduled:{name:string;periodInMinutes:number;scheduledTime:number}|undefined;
@@ -45,5 +53,13 @@ describe('toolbar and worker recovery',()=>{
     expect(scheduled?.scheduledTime).toBe(30000);
     scheduled=undefined;await ensureAlarm(alarms);
     expect(readScheduled()?.scheduledTime).toBe(40000);
+  });
+  it('clears Chrome badge text when nothing is pinned even with cached quotes or rotation',()=>{
+    const settings={...createDefaultSettings(),badgeSymbol:null,rotationSeconds:5 as const};
+    const pair=settings.watchlist[0];
+    const state:Snapshot={settings,quotes:{BTCUSDT:{...pair,price:'60000',changePercent:2,receivedAt:1000,eventTime:1000,source:'rest'}},connection:{status:'offline',message:'断网',lastMessageAt:null}};
+    expect(getBadgePair(settings,5000)).toBeUndefined();
+    expect(createBadge(state,5000).text).toBe('');
+    expect(createBadge(state,5000).title).toContain('未固定');
   });
 });

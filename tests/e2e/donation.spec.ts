@@ -17,12 +17,15 @@ test('real extension displays three clean, readable payment QR codes', async ({}
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
     const page = await context.newPage();
     await page.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
-    const feed = page.getByRole('button', { name: '投喂蛋壳' });
+    const feed = page.getByRole('button', { name: /投喂蛋壳/ });
     await expect(feed).toBeVisible();
-    await expect(page.getByText('（支持开发）')).toBeVisible();
+    await expect(feed.locator('.donation-note')).toHaveText('（支持开发）');
+    const brand = await page.locator('.brand').boundingBox();
     const heading = await page.locator('.brand strong').boundingBox();
     const trigger = await feed.boundingBox();
     expect(heading && trigger && Math.abs(heading.y - trigger.y)).toBeLessThan(15);
+    expect(brand && trigger && trigger.x - brand.x - brand.width).toBeGreaterThanOrEqual(6);
+    expect(brand && trigger && trigger.x - brand.x - brand.width).toBeLessThanOrEqual(18);
     expect(await page.locator('.topbar').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.locator('.topbar').screenshot({ path: testInfo.outputPath('donation-entry.png') });
     await feed.evaluate(element => (element as HTMLButtonElement).click());

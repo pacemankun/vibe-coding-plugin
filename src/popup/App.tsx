@@ -191,8 +191,9 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     <header className="topbar">
       <div className="brand"><img className="brand-mark" src="icons/128.png" alt=""/><div><strong>蛋壳币价</strong><small>DANKE COIN</small></div></div>
       {donationReady(donationDetails) && <div className="donation-trigger">
-        <button type="button" className="donation-entry" aria-describedby="donation-support-note" disabled={donationBurst} onClick={openDonation}>投喂蛋壳</button>
-        <small id="donation-support-note" className="donation-note">（支持开发）</small>
+        <button type="button" className="donation-entry" disabled={donationBurst} onClick={openDonation}>
+          <span>投喂蛋壳</span><small className="donation-note">（支持开发）</small>
+        </button>
         {donationBurst && <span className="donation-burst" aria-hidden="true">{Array.from({length:8},(_,index)=><i key={index}/>)}</span>}
       </div>}
       <div className="top-actions">

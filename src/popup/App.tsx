@@ -25,6 +25,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [donationBurst, setDonationBurst] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const quoteRequest = useRef(0);
@@ -34,6 +35,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   const selectedStateQuote = useRef<Quote | undefined>(undefined);
   const pushGeneration = useRef(0);
   const stateRef = useRef<Snapshot | null>(null);
+  const donationTimer = useRef<number | null>(null);
   const settings = state?.settings ?? createDefaultSettings();
 
   function acceptSnapshot(next: Snapshot) {
@@ -80,8 +82,19 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
     }).catch(err => { if (active && pushGeneration.current === initialGeneration) setError(`无法读取行情：${messageOf(err)}`); });
     void loadCatalog('spot');
     const timer = window.setInterval(() => setNow(Date.now()), 10_000);
-    return () => { active = false; mounted.current = false; unsubscribe(); window.clearInterval(timer); quoteRequest.current++; catalogRequest.current.spot++; catalogRequest.current.usdm++; };
+    return () => { active = false; mounted.current = false; unsubscribe(); window.clearInterval(timer); if (donationTimer.current !== null) { window.clearTimeout(donationTimer.current); donationTimer.current = null; } quoteRequest.current++; catalogRequest.current.spot++; catalogRequest.current.usdm++; };
   }, [bridge]);
+
+  function openDonation() {
+    if (donationTimer.current !== null) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setView('donation'); return; }
+    setDonationBurst(true);
+    donationTimer.current = window.setTimeout(() => {
+      donationTimer.current = null;
+      setDonationBurst(false);
+      setView('donation');
+    }, 300);
+  }
 
   useEffect(() => {
     if (!selected) return;
@@ -177,6 +190,11 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
   return <div className="popup-shell" data-theme={settings.theme} data-color-scheme={settings.colorScheme}>
     <header className="topbar">
       <div className="brand"><img className="brand-mark" src="icons/128.png" alt=""/><div><strong>蛋壳币价</strong><small>DANKE COIN</small></div></div>
+      {donationReady(donationDetails) && <div className="donation-trigger">
+        <button type="button" className="donation-entry" aria-describedby="donation-support-note" disabled={donationBurst} onClick={openDonation}>投喂蛋壳</button>
+        <small id="donation-support-note" className="donation-note">（支持开发）</small>
+        {donationBurst && <span className="donation-burst" aria-hidden="true">{Array.from({length:8},(_,index)=><i key={index}/>)}</span>}
+      </div>}
       <div className="top-actions">
         <span className={`connection ${state?.connection.status ?? (error ? 'offline' : 'connecting')}`} title={state?.connection.message ?? (error || '正在连接')}><i />{state ? statusText[state.connection.status] : error ? '不可用' : '连接中'}</span>
         <button type="button" className="icon-button" aria-label="刷新行情" title="刷新行情" onClick={refresh} disabled={busy}><RefreshCw size={17} /></button>
@@ -223,7 +241,7 @@ export default function App({ bridge }: { bridge: PopupBridge }) {
         </div>
       </section></div>}
     </main>
-    <footer><span>BINANCE <i/> SPOT / USDT 永续</span>{donationReady(donationDetails) && <button type="button" className="donation-entry" onClick={()=>setView('donation')}>支持开发</button>}<span>24h 涨跌幅 · 行情仅供参考</span></footer>
+    <footer><span>BINANCE <i/> SPOT / USDT 永续</span><span>24h 涨跌幅 · 行情仅供参考</span></footer>
     {view==='donation' && donationReady(donationDetails) && <DonationDialog details={donationDetails} onClose={()=>setView('home')}/>}
   </div>;
 }

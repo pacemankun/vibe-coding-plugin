@@ -1,6 +1,6 @@
 # Chrome 应用商店首次发布清单
 
-状态：准备中。扩展版本 0.2.3；GitHub 源码仓库保持私有。
+状态：发布资料、隐私政策网页及 ZIP 已备好；开发者账号注册与商店后台提交待完成。扩展版本 0.2.3；GitHub 源码仓库保持私有。
 
 1. 开发者本人注册 Chrome 应用商店开发者账号，支付一次性注册费，开启 Google 账号两步验证，在后台设置发布者名称并验证联系邮箱。
 2. 隐私政策网页已放入现有公开仓库 `pacemankun/pacemankun.github.com` 的 `danke-coin/privacy/` 目录，由该仓库的 GitHub Pages 自动发布。公开地址为 `https://pacemankun.github.io/danke-coin/privacy/`；把此 URL 填入开发者后台。维护源文件位于本仓库 `docs/webstore/pages/`，同步更新两个仓库时保持内容一致；插件源码仓库继续保持私有。

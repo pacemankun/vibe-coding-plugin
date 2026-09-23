@@ -75,6 +75,10 @@ npm run package     # 可选：分享 / 归档 ZIP，需要系统 zip 命令
 
 CI 配置保存在 [docs/github-actions-check.yml](docs/github-actions-check.yml)，目前作为模板提供，尚未启用。首次上传使用的 GitHub OAuth 凭据没有 `workflow` 权限，GitHub 因此拒绝直接上传工作流文件；现有 SSH 也尚未配置成功。具备相应权限后，将模板移至 `.github/workflows/check.yml` 并提交，即可在 push / PR 时运行类型检查、测试、构建和浏览器集成测试。本地验证不依赖此权限。
 
+## Chrome 应用商店发布
+
+首次上架的步骤、商店文案与图片资源见 [发布清单](docs/webstore/launch-checklist.md)；公开的[隐私政策](https://pacemankun.github.io/danke-coin/privacy/)由现有 GitHub Pages 仓库承载。商店后台上传 `npm run package` 生成的 ZIP；本地加载未打包扩展仍选择 `dist`。插件源码仓库保持私有。
+
 ## 维护约定
 
 统一产品名称为「蛋壳币价」，英文辅助名称为「Danke Coin」。仓库和 npm 工程标识保留 `vibe-coding-plugin`；历史文档路径和后台 alarm 标识保留以兼容现有引用与安装。产品改名、图标和版本变更需要检查扩展元数据、界面、README、GitHub 简介、文档和构建产物，具体见 [AGENTS.md](AGENTS.md)。

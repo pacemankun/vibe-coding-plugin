@@ -18,11 +18,11 @@ npm run build
 3. 在 Chrome 扩展菜单中将「蛋壳币价」固定到工具栏。
 4. 点击图标管理自选、切换角标关注币对和显示偏好。鼠标悬停图标可查看完整价格、计价币种和更新时间。
 
-日常更新只需执行 `npm run build`，再到扩展管理页点击「重新加载」，继续使用原来的 `dist`。仅在需要分享或归档时执行 `npm run package`，生成 `artifacts/danke-coin-0.2.3.zip`；ZIP 必须先解压，再加载解压后的目录。0.2.0 新增币安合约行情域名权限，Chrome 如提示权限变更，需要确认后重新启用。旧版自选与设置保留。
+日常更新只需执行 `npm run build`，再到扩展管理页点击「重新加载」，继续使用原来的 `dist`。仅在需要分享或归档时执行 `npm run package`，生成 `artifacts/danke-coin-0.2.4.zip`；ZIP 必须先解压，再加载解压后的目录。0.2.4 移除了币安域名访问权限，旧版自选与设置保留。
 
 查看 BTW：点击「添加币对」→「USDT 永续」→ 搜索 `BTW` 或 `BTWUSDT` → 选择 `BTW/USDT` →「固定到角标」。合约展示**最新成交价**，不是标记价格。现货与永续可同时加入自选，同名币对分别保存，不会互相覆盖。
 
-## 当前功能（0.2.3）
+## 当前功能（0.2.4）
 
 - 默认关注 BTC、ETH 等 10 个 USDT 交易对，最多 20 个自选，至少保留 1 个；新安装默认不固定角标。
 - 透明柴犬头像；固定币对后，Chrome 原生角标以浅青蓝色背景和深色大字显示 4 个字符，支持价格或 24 小时涨跌幅和 5 / 10 / 15 秒轮换。取消固定后不显示角标。
@@ -41,7 +41,7 @@ npm run build
 
 ## 数据与权限
 
-扩展只申请 `storage`、`alarms` 和币安公开行情域名权限，不读取浏览历史、不注入网页、不收集账户或身份数据。设置、币对目录与最近行情保存在本机 `chrome.storage.local`。
+扩展只申请 `storage` 和 `alarms`，不申请网站访问权限，不读取浏览历史、不注入网页、不收集账户或身份数据。设置、币对目录与最近行情保存在本机 `chrome.storage.local`。币安公开 REST 接口目前允许跨域读取，扩展通过标准跨域请求获取行情，WebSocket 继续接收推送；请求不携带浏览器凭据。如果币安将来关闭这些接口的跨域访问，REST 补数和搜索可能需要调整。
 
 - REST：`https://data-api.binance.vision/api/v3/`，使用 `exchangeInfo` 与批量 `ticker/24hr`。
 - WebSocket：`wss://data-stream.binance.vision:443/stream`，订阅自选的 `@ticker`（约每秒推送）。
@@ -77,7 +77,7 @@ CI 配置保存在 [docs/github-actions-check.yml](docs/github-actions-check.yml
 
 ## Chrome 应用商店发布
 
-首次上架的步骤、商店文案与图片资源见 [发布清单](docs/webstore/launch-checklist.md)；公开的[隐私政策](https://pacemankun.github.io/danke-coin/privacy/)由现有 GitHub Pages 仓库承载。商店后台上传 `npm run package` 生成的 ZIP；本地加载未打包扩展仍选择 `dist`。插件源码仓库保持私有。
+首次上架的步骤、商店文案与图片资源见 [发布清单](docs/webstore/launch-checklist.md)；0.2.4 的权限说明与更新步骤见 [商店更新说明](docs/webstore/update-0.2.4.md)。公开的[隐私政策](https://pacemankun.github.io/danke-coin/privacy/)由现有 GitHub Pages 仓库承载。商店后台上传 `npm run package` 生成的 ZIP；本地加载未打包扩展仍选择 `dist`。2026-09-23 核对时，GitHub 源码仓库为公开状态。
 
 ## 维护约定
 

@@ -1,5 +1,11 @@
 # 蛋壳币价验证记录
 
+## 0.2.4：移除币安网站访问权限
+
+2026-09-23 在从最新 `main` 创建的独立分支 `codex/fix/remove-binance-host-permissions` 验证：生产 `manifest.json` 不含 `host_permissions`，保留 `storage`、`alarms` 与限制连接目的地的 CSP。`npm run check` 通过 TypeScript、86 项单元 / 组件测试、生产构建与资源检查；`npm run test:e2e` 在允许启动 Chromium 的环境中通过 5 项真实 MV3 扩展测试。受限沙盒第一次启动 Chromium 被系统拒绝，测试在允许启动浏览器的环境中重跑通过。
+
+使用独立临时 Chromium 配置和真实币安网络，现货测试得到 `status: live`、10 个报价、9 个来自推送、角标 `087k`，页面无运行错误；USDT 永续测试搜索并固定 BTW/USDT，得到 `status: live`、11 个报价全部来自推送、角标 `.932`，页面无运行错误。这些角标只是测试时的近似价格。此前在隔离的无网站权限扩展环境中，现货和合约的公开 REST `/time` 与 `/ticker/24hr` 请求均返回 HTTP 200，搜索与手动刷新可用。未修改日常 Chrome 配置，也未上传商店版本。
+
 ## 0.2.3：Chrome 应用商店上架准备
 
 2026-09-20 核验：远程 `main` 仍为 `f010c09`；上架准备分支相对它只新增文档、商店图片和图片生成脚本，没有改动扩展运行代码。`npm test` 通过 86 项单元 / 组件测试；`npm run test:e2e` 在允许启动 Chromium 的环境中通过 5 项真实 MV3 扩展测试。受限沙盒内 Chromium 在启动阶段退出，完整测试已在允许启动浏览器的环境中重跑通过。

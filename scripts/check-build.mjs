@@ -6,7 +6,7 @@ const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.version, pkg.version);
 assert.deepEqual(manifest.permissions, ['storage', 'alarms']);
-assert.deepEqual(manifest.host_permissions, ['https://data-api.binance.vision/*', 'https://fapi.binance.com/*']);
+assert.ok(!Object.hasOwn(manifest, 'host_permissions'), 'Public market data must not require host permissions');
 for (const file of [manifest.background.service_worker, manifest.action.default_popup, ...Object.values(manifest.icons)]) {
   assert.ok(existsSync(join('dist', file)), `Missing manifest asset: ${file}`);
 }

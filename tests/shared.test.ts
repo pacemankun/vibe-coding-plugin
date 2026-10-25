@@ -9,7 +9,7 @@ describe('price display regression boundaries', () => {
   });
   it.each(['62800', '123456', '999999', '0.044', '9.9999', '999.9', '0.000000000012', '100000000000000000000'])('keeps %s readable within four badge characters', (price) => {
     const result = formatBadgePrice(price);
-    expect(result.length).toBe(4);
+    expect(result.length).toBeLessThanOrEqual(4);
     expect(result).not.toMatch(/^(?:--|0|\.0+|0\.0+)$/);
   });
   it('does not invent a zero change for missing or malformed values', () => {
@@ -21,9 +21,27 @@ describe('price display regression boundaries', () => {
   });
   it.each([
     ['0.6', '.600'], ['0.01', '.010'], ['0.9999', '1.00'],
-    ['1.2', '1.20'], ['12', '12.0'], ['123', '0123'],
-    ['1000', '1.0k'], ['12000', '012k'], ['999999', '1.0M'],
-  ])('pads %s without changing its displayed magnitude', (price, expected) => {
+    ['1.2', '1.20'], ['12', '12.0'], ['123', '123'],
+    ['1000', '1000'], ['12000', '1200'], ['999999', '1.0M'],
+  ])('uses the badge space for price digits in %s', (price, expected) => {
+    expect(formatBadgePrice(price)).toBe(expected);
+  });
+  it.each([
+    ['2428.76', '2428'], ['2500.120000', '2500'],
+    ['9999.999999999999999999', '9999'], ['10000', '1000'],
+    ['68754.32', '6875'], ['68759.99', '6875'], ['99999.90', '9999'],
+    ['99999.999999999999999999', '9999'], ['02428.760000', '2428'],
+  ])('truncates lower places in %s without rounding or adding a unit', (price, expected) => {
+    expect(formatBadgePrice(price)).toBe(expected);
+  });
+  it.each([
+    ['1.7462', '1.75'], ['1.7449', '1.74'], ['1.745', '1.75'],
+    ['1.005', '1.01'], ['2.675', '2.68'], ['1.2300', '1.23'],
+    ['12.3456', '12.3'], ['12.35', '12.4'], ['12.3499', '12.3'],
+    ['10.05', '10.1'], ['123.45', '123'], ['123.5', '124'],
+    ['9.9999', '10.0'], ['99.999', '100'], ['999.99', '1000'],
+    ['0.6078', '.608'], ['0.5005', '.501'], ['0.9995', '1.00'],
+  ])('rounds %s into the available four characters including the decimal point', (price, expected) => {
     expect(formatBadgePrice(price)).toBe(expected);
   });
   it.each([[0, '0.00'], [1.2, '+1.2'], [-1.2, '-1.2'], [12, '+012'], [-12, '-012'], [100, '+99+'], [null, '----'], [NaN, '----']] as const)('keeps change %s to four characters', (change, expected) => {

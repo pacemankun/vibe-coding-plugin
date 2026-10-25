@@ -26,7 +26,7 @@ test('BTW perpetual search, market isolation, pinning and persistent badge selec
       const symbol=url.searchParams.get('symbol');
       expect(url.searchParams.has('symbols')).toBe(false);
       expect(symbol).not.toBeNull();
-      return route.fulfill({json:{symbol,lastPrice:symbol==='BTWUSDT'?'0.7050000':'61000.34',priceChangePercent:'-3.903',closeTime:Date.now()}});
+      return route.fulfill({json:{symbol,lastPrice:symbol==='BTWUSDT'?'1.7462':'61000.34',priceChangePercent:'-3.903',closeTime:Date.now()}});
     });
     const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');
     const page=await context.newPage();
@@ -37,12 +37,13 @@ test('BTW perpetual search, market isolation, pinning and persistent badge selec
     await page.getByRole('tab',{name:'USDT 永续',exact:true}).click();
     await page.getByRole('searchbox',{name:'搜索币对'}).fill('BTW');
     await page.locator('.search-results button').filter({hasText:'BTW/USDT'}).click();
-    await expect(page.getByTestId('pair-detail')).toContainText('0.705');
+    await expect(page.getByTestId('pair-detail')).toContainText('1.7462');
     await expect(page.getByTestId('pair-detail')).toContainText('USDT 永续');
     await page.getByRole('button',{name:'固定到角标',exact:true}).click();
     await expect(page.getByTestId('focus-quote')).toContainText('BTW');
     await expect.poll(()=>worker.evaluate(()=>chrome.action.getTitle({}))).toContain('BTW/USDT · USDT 永续');
-    await expect.poll(()=>worker.evaluate(()=>chrome.action.getBadgeText({}))).toBe('.705');
+    await expect.poll(()=>worker.evaluate(()=>chrome.action.getBadgeText({}))).toBe('1.75');
+    await expect.poll(()=>worker.evaluate(()=>chrome.action.getTitle({}))).toContain('1.7462 USDT');
     await page.reload();
     await expect(page.getByTestId('focus-quote')).toContainText('BTW');
     await page.getByRole('button',{name:'添加币对',exact:true}).click();
@@ -58,7 +59,7 @@ test('BTW perpetual search, market isolation, pinning and persistent badge selec
     await expect.poll(async()=> (await page.evaluate(async()=> (await chrome.runtime.sendMessage({type:'GET_STATE'})).data)).quotes['usdm:BTCUSDT']?.price).toBe('61000.34');
     futureFailed=true;
     await page.getByRole('button',{name:'刷新行情',exact:true}).click();
-    await expect(page.getByTestId('focus-quote')).toContainText('0.705');
+    await expect(page.getByTestId('focus-quote')).toContainText('1.7462');
     await expect(page.getByRole('button',{name:'查看 BTC/USDT 详情',exact:true})).toContainText('60,000.12');
     await mkdir('artifacts',{recursive:true});
     await page.screenshot({path:'artifacts/popup-usdm.png'});

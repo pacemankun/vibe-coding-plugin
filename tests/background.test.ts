@@ -10,9 +10,11 @@ describe('toolbar and worker recovery',()=>{
     const settings={...createDefaultSettings(),watchlist:[spot,future],badgeSymbol:'usdm:BTCUSDT'};
     const state:Snapshot={settings,quotes:{BTCUSDT:{...spot,price:'60000',changePercent:-1,receivedAt:5000,eventTime:5000,source:'rest'},'usdm:BTCUSDT':{...future,price:'61000',changePercent:2,receivedAt:5000,eventTime:5000,source:'stream'}},connection:{status:'degraded',message:'现货离线',lastMessageAt:5000},connections:{spot:{status:'offline',message:'断网',lastMessageAt:null},usdm:{status:'live',message:'实时',lastMessageAt:5000}}};
     const badge=createBadge(state,5000);
-    expect(badge.text).toBe('061k');
+    expect(badge.text).toBe('6100');
     expect(badge.title).toContain('USDT 永续');
     expect(badge.title).toContain('最新成交价');
+    expect(badge.title).toContain('61,000 USDT');
+    expect(badge.title).toContain('省略个位');
     expect(badge.color).toBe('#9af6fc');
   });
   it('uses the actual rotated pair and its quote currency in the tooltip',()=>{
@@ -23,14 +25,16 @@ describe('toolbar and worker recovery',()=>{
     const badge=createBadge(state,5000);
     expect(badge.title).toContain('ETH/USDT');
     expect(badge.title).toContain('2,500.12 USDT');
-    expect(badge.text.length).toBeLessThanOrEqual(4);
+    expect(badge.text).toBe('2500');
+    expect(badge.title).not.toContain('省略个位');
+    expect(badge.title).not.toContain('k=千');
   });
   it('keeps stale price visible but explicitly marks it as cached',()=>{
     const settings={...createDefaultSettings(),badgeSymbol:'BTCUSDT'};
     const pair=settings.watchlist[0];
     const state:Snapshot={settings,quotes:{BTCUSDT:{...pair,price:'60000',changePercent:2,receivedAt:1000,eventTime:1000,source:'rest'}},connection:{status:'offline',message:'断网',lastMessageAt:null}};
     const badge=createBadge(state,100000);
-    expect(badge.text).toBe('060k');
+    expect(badge.text).toBe('6000');
     expect(badge.title).toMatch(/缓存|过期/);
     expect(badge.color).toBe('#9af6fc');
   });

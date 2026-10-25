@@ -20,13 +20,19 @@ export function createBadge(state:Snapshot,now=Date.now()) {
   const text=!quote?(connection.status==='connecting'?'....':'----'):state.settings.badgeMode==='change'?formatBadgeChange(quote.changePercent):formatBadgePrice(quote.price);
   const time=quote?new Date(quote.receivedAt).toLocaleString('zh-CN',{hour12:false}):'尚未收到';
   const status=!quote?'等待行情':stale?'缓存已过期':live?'实时行情':'最近报价 · 推送未连接';
+  const integerDigits=quote?.price.split('.')[0].replace(/^0+/, '').length;
+  const priceHint=integerDigits===5
+    ?'角标省略个位，仅显示万、千、百、十位；完整价格以上方为准'
+    :/[a-zA-Z]/.test(text)
+      ?'角标为近似值；k=千，M=百万，e-5=×10⁻⁵；TINY/HUGE 请看完整价'
+      :'角标为近似值；完整价格以上方为准';
   const title=[`蛋壳币价 · ${pair.baseAsset}/${pair.quoteAsset} · ${marketLabel(pair)}`,
     marketOf(pair)==='usdm'?'最新成交价（不是标记价格）':'现货最新价',
     quote?`${formatPrice(quote.price)} ${pair.quoteAsset}`:'暂无有效价格',
     `24 小时涨跌：${formatChange(quote?.changePercent??null)}`,
     `${status} · 收到时间：${time}`,
     `工具栏：${text}`,
-    state.settings.badgeMode==='change'?'角标数值单位：%':'角标为近似值；k=千，M=百万，e-5=×10⁻⁵；TINY/HUGE 请看完整价',
+    state.settings.badgeMode==='change'?'角标数值单位：%':priceHint,
     connection.message].join('\n');
   return {text,color,title};
 }

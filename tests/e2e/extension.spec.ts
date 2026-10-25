@@ -21,7 +21,7 @@ test('real MV3 extension: toolbar, pair units, updates, offline cache and persis
       const url = new URL(route.request().url());
       if (url.pathname.endsWith('/exchangeInfo')) return route.fulfill({ json: { symbols: pairs.map(pair => ({ ...pair, status: 'TRADING', isSpotTradingAllowed: true })) } });
       const symbols = JSON.parse(url.searchParams.get('symbols') ?? '[]') as string[];
-      return route.fulfill({ json: symbols.map(symbol => ({ symbol, lastPrice: symbol === 'BTCUSDT' ? btcPrice : symbol === 'ETHBTC' ? '0.05219000' : '123.4500', priceChangePercent: '2.41', closeTime: Date.now() })) });
+      return route.fulfill({ json: symbols.map(symbol => ({ symbol, lastPrice: symbol === 'BTCUSDT' ? btcPrice : symbol === 'ETHUSDT' ? '2428.7600' : symbol === 'ETHBTC' ? '0.05219000' : '123.4500', priceChangePercent: '2.41', closeTime: Date.now() })) });
     });
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
     const id = new URL(worker.url()).host;
@@ -38,8 +38,14 @@ test('real MV3 extension: toolbar, pair units, updates, offline cache and persis
     await page.getByRole('button', {name:'固定到角标',exact:true}).click();
     await expect(page.getByTestId('focus-quote')).toContainText('67,482.36');
     await expect(page.getByText('交互预览 · 示例数据')).toHaveCount(0);
-    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('067k');
+    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('6748');
+    await expect.poll(() => worker.evaluate(() => chrome.action.getTitle({}))).toContain('省略个位');
     expect(await worker.evaluate(async () => (await chrome.alarms.get('coin-glance-health'))?.periodInMinutes)).toBe(.5);
+    await page.getByRole('button', {name:'查看 ETH/USDT 详情',exact:true}).click();
+    await page.getByRole('button', {name:'固定到角标',exact:true}).click();
+    await expect(page.getByTestId('focus-quote')).toContainText('2,428.76');
+    await expect.poll(() => worker.evaluate(() => chrome.action.getBadgeText({}))).toBe('2428');
+    await expect.poll(() => worker.evaluate(() => chrome.action.getTitle({}))).not.toContain('省略个位');
     await page.getByRole('button', { name: '添加币对', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索币对' }).fill('ETHBTC');
     await page.getByRole('button', { name: '选择 ETH/BTC', exact: true }).click();

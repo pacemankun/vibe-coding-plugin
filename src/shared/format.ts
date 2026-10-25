@@ -25,13 +25,21 @@ function padBadgeNumber(value: string, width: number): string {
 export function formatBadgePrice(price: string): string {
   if (!validPrice(price)) return '----';
   const n = Number(price);
-  if (n < 0.001) {
-    const notation = n.toExponential(0).replace('e+', 'e');
-    return notation.length <= 4 ? notation : 'TINY';
-  }
-  if (n < 1) {
+  const [whole, fraction = ''] = price.split('.');
+  const integer = whole.replace(/^0+(?=\d)/, '');
+  if (integer === '0') {
+    if (n < 0.001) {
+      const notation = n.toExponential(0).replace('e+', 'e');
+      return notation.length <= 4 ? notation : 'TINY';
+    }
     const rounded = n.toFixed(3);
     return rounded === '1.000' ? '1.00' : rounded.replace(/^0/, '');
+  }
+  if (integer.length <= 5) {
+    // Slice the decimal string so floating-point rounding cannot alter the leading digits.
+    if (integer.length >= 4) return integer.slice(0, 4);
+    const decimals = fraction.slice(0, 3 - integer.length).replace(/0+$/, '');
+    return integer + (decimals ? `.${decimals}` : '');
   }
   const units = ['', 'k', 'M', 'B', 'T'];
   for (let unit = 0; unit < units.length; unit++) {

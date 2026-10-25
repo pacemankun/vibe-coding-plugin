@@ -1,5 +1,11 @@
 # 蛋壳币价验证记录
 
+## 0.2.5：角标优先显示价格数字
+
+2026-10-25 从远程核对一致的 `main`（`d1037a3`）创建独立分支 `codex/fix/plain-price-badge`。先更新并运行格式化 / 后台回归测试，旧实现因 `2428.76 → 2.4k`、五位价缩写及前导零等问题出现 21 项预期失败；修改后针对性 49 项测试通过。价格使用十进制字符串截取，避免浮点舍入改变整数高位；五位价格的悬停说明注明省略个位，并保留完整价格及计价资产。
+
+`npm run check` 通过 TypeScript、101 项单元 / 组件测试、生产构建和资源校验；`npm run test:e2e` 在隔离 Chromium 中通过全部 5 项真实 MV3 扩展测试。受控行情响应下通过 `chrome.action.getBadgeText()` 确认 BTC `67482.36` 显示 `6748`、ETH `2428.76` 显示 `2428`；小额价、取消固定、行情刷新、跨市场与重启恢复的现有测试继续通过。弹窗和悬停仍保留完整价格。此次构建的 `dist` 为 0.2.5，未生成 ZIP，等待用户本地验收。
+
 ## 0.2.4：移除币安网站访问权限
 
 2026-09-23 在从最新 `main` 创建的独立分支 `codex/fix/remove-binance-host-permissions` 验证：生产 `manifest.json` 不含 `host_permissions`，保留 `storage`、`alarms` 与限制连接目的地的 CSP。`npm run check` 通过 TypeScript、86 项单元 / 组件测试、生产构建与资源检查；`npm run test:e2e` 在允许启动 Chromium 的环境中通过 5 项真实 MV3 扩展测试。受限沙盒第一次启动 Chromium 被系统拒绝，测试在允许启动浏览器的环境中重跑通过。

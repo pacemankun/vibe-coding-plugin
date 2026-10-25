@@ -22,6 +22,14 @@ function padBadgeNumber(value: string, width: number): string {
   return sign + value.slice(sign.length).padStart(width - sign.length, '0');
 }
 
+/** Round the short retained digit sequence as an integer, avoiding binary decimal ties. */
+function roundBadgeDecimal(integer: string, fraction: string, decimals: number): string {
+  const kept = fraction.slice(0, decimals).padEnd(decimals, '0');
+  const increment = Number(fraction[decimals] ?? '0') >= 5 ? 1 : 0;
+  const rounded = String(Number(integer + kept) + increment).padStart(decimals + 1, '0');
+  return decimals ? `${rounded.slice(0, -decimals)}.${rounded.slice(-decimals)}` : rounded;
+}
+
 export function formatBadgePrice(price: string): string {
   if (!validPrice(price)) return '----';
   const n = Number(price);
@@ -32,14 +40,19 @@ export function formatBadgePrice(price: string): string {
       const notation = n.toExponential(0).replace('e+', 'e');
       return notation.length <= 4 ? notation : 'TINY';
     }
-    const rounded = n.toFixed(3);
+    const rounded = roundBadgeDecimal(integer, fraction, 3);
     return rounded === '1.000' ? '1.00' : rounded.replace(/^0/, '');
   }
   if (integer.length <= 5) {
     // Slice the decimal string so floating-point rounding cannot alter the leading digits.
     if (integer.length >= 4) return integer.slice(0, 4);
-    const decimals = fraction.slice(0, 3 - integer.length).replace(/0+$/, '');
-    return integer + (decimals ? `.${decimals}` : '');
+    let decimals = 3 - integer.length;
+    let rounded = roundBadgeDecimal(integer, fraction, decimals);
+    while (rounded.length > 4 && decimals > 0) {
+      // Re-round the original price when a carry consumes another character.
+      rounded = roundBadgeDecimal(integer, fraction, --decimals);
+    }
+    return rounded;
   }
   const units = ['', 'k', 'M', 'B', 'T'];
   for (let unit = 0; unit < units.length; unit++) {
